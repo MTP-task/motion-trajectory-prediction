@@ -218,3 +218,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Cookiecutter Data Science
+/data/
+.DS_Store
+*.swp
+*.swo

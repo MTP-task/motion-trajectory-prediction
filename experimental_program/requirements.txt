@@ -1,0 +1,11 @@
+# Data-collection task, run on the lab PC with the Arduino IMU and Kinect.
+# Not needed for preprocessing or training (see ../requirements.txt).
+mediapipe
+numpy
+opencv-python
+openpyxl
+pandas
+pygame
+pyserial
+# `freenect` (Kinect v1) comes from libfreenect's Python wrapper, not PyPI:
+# https://github.com/OpenKinect/libfreenect

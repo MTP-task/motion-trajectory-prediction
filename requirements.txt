@@ -1,0 +1,19 @@
+# On a GPU machine, install the CUDA build of torch first
+# (https://pytorch.org/get-started/locally/); plain `pip install torch` gives the CPU build.
+ipython
+jupyterlab
+matplotlib
+mne
+mne-icalabel
+notebook
+numpy
+openpyxl
+pandas
+pip
+python-dotenv
+ruff
+scikit-learn
+scipy
+seaborn
+torch
+-e .
