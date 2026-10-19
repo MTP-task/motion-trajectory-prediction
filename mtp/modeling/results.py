@@ -1,4 +1,4 @@
-"""Collect result rows for one subject and export them to Excel."""
+"""Collect the result rows of one subject and save them to Excel."""
 
 from dataclasses import fields
 import logging
@@ -30,6 +30,30 @@ def summarize_baseline(
     evaluation_task="MI_test_final",
     branch="final",
 ):
+    """Build one row of the "summary" sheet.
+
+    Parameters
+    ----------
+    subject, target_stream : str
+        Run settings recorded with the row.
+    baseline_id : int
+        Baseline number.
+    baseline_name : str
+        Baseline name.
+    metrics : dict
+        Output of `compute_metrics_np`, optionally with a "loss".
+    notes : str
+        Description of the evaluation.
+    evaluation_task, branch : str
+        What was evaluated, such as "MI_test", and which part of the model, such as
+        "student_EEG_only".
+
+    Returns
+    -------
+    dict
+        The labels, the mean r, RMSE, MAE and loss, the r of each output dimension
+        (such as ``r_wrist_Vx``) and the notes.
+    """
     row = {
         "subject": subject,
         "baseline_id": baseline_id,
@@ -43,11 +67,6 @@ def summarize_baseline(
         "test_loss": metrics.get("loss", np.nan),
     }
 
-    # Add per-axis correlation columns directly to the summary sheet.
-    # Example columns:
-    #   r_shoulder_Vx, r_shoulder_Vy, r_shoulder_Vz,
-    #   r_elbow_Vx,    r_elbow_Vy,    r_elbow_Vz,
-    #   r_wrist_Vx,    r_wrist_Vy,    r_wrist_Vz
     for k, v in metrics.items():
         if k.startswith("r_") and k != "r_mean":
             row[k] = v
@@ -57,7 +76,20 @@ def summarize_baseline(
 
 
 class ResultsLog:
-    """Result rows for one subject: the summary, axis_metrics and stages sheets."""
+    """Collect the result rows of one subject and save them to Excel.
+
+    Parameters
+    ----------
+    cfg : Config
+        Run settings, written to the "config" sheet.
+    dim_names : list of str
+        Name of each output dimension.
+
+    Attributes
+    ----------
+    summary_rows, axis_rows, stage_rows : list of dict
+        Rows of the "summary", "axis_metrics" and "stages" sheets.
+    """
 
     def __init__(self, cfg, dim_names):
         self.cfg = cfg
@@ -67,6 +99,21 @@ class ResultsLog:
         self.stage_rows = []
 
     def add_evaluation(self, baseline_id, baseline_name, metrics, notes, evaluation_task, branch):
+        """Log one evaluation and add it to the "summary" and "axis_metrics" sheets.
+
+        Parameters
+        ----------
+        baseline_id : int
+            Baseline number.
+        baseline_name : str
+            Baseline name.
+        metrics : dict
+            Output of `compute_metrics_np`.
+        notes : str
+            Description of the evaluation.
+        evaluation_task, branch : str
+            What was evaluated and which part of the model; see `summarize_baseline`.
+        """
         log.info(
             "RESULT %s | %s | %s: r_mean=%.4f, RMSE=%.4f, MAE=%.4f",
             baseline_name,
@@ -100,6 +147,7 @@ class ResultsLog:
         )
 
     def config_rows(self):
+        """Return the rows of the "config" sheet: recording constants, then all settings."""
         rows = [
             ("dim_names", ", ".join(self.dim_names)),
             ("eeg_fs", EEG_FS),
@@ -111,13 +159,18 @@ class ResultsLog:
         ]
         for f in fields(self.cfg):
             value = getattr(self.cfg, f.name)
-            # Excel cells hold numbers, strings and booleans only.
+            # Excel cells hold numbers, text and booleans, so paths and lists become text.
             rows.append(
                 (f.name, value if isinstance(value, (int, float, str, bool)) else str(value))
             )
         return rows
 
     def save(self, path):
+        """Write the four sheets to an Excel file, creating its folder if needed.
+
+        The header row of each sheet is frozen and the columns are sized to fit their
+        content, up to 50 characters.
+        """
         path.parent.mkdir(parents=True, exist_ok=True)
         sheets = {
             "summary": pd.DataFrame(self.summary_rows),
@@ -130,7 +183,6 @@ class ResultsLog:
             for sheet_name, df in sheets.items():
                 df.to_excel(writer, sheet_name=sheet_name, index=False)
 
-            # Freeze the header row and fit column widths.
             for ws in writer.book.worksheets:
                 ws.freeze_panes = "A2"
                 for col in ws.columns:

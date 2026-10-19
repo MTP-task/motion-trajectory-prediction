@@ -1,4 +1,8 @@
-"""End-to-end runs of the command line on mock data, 1 epoch per stage, on CPU."""
+"""Tests that run the command line from start to finish on mock data.
+
+Each stage trains for one or two epochs. The tests run on the CPU, except the GPU
+repeatability test, which needs a CUDA GPU.
+"""
 
 import pytest
 import torch

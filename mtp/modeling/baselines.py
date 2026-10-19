@@ -1,25 +1,22 @@
-"""
-Baselines 0-7. Each one trains its model(s) and records test results via Experiment.
+"""The eight baselines.
 
-Baseline 0: Time-lagged Linear method (MLR / Ridge-stabilized MLR)
-Baseline 1: MI-only EEG model
-Baseline 2: ME EEG-only pretraining -> MI EEG-only fine-tuning
-Baseline 3: ME EEG+IMU pretraining -> MI EEG-only fine-tuning with zero IMU
-            No distillation, no prototype alignment
-Baseline 4: ME EEG+IMU teacher + EEG-only student distillation -> MI fine-tuning
-            No prototype alignment
-Baseline 5: Full model
-            ME EEG+IMU + lag-aware fusion + student distillation
-            + subject adaptation + prototype alignment
-Baseline 6: Baseline 3 with bidirectional cross-modal multi-head attention fusion
-Baseline 7: Baseline 3 with normal multi-head self-attention over fused EEG+IMU tokens
+Each baseline is a function that takes an `Experiment`, trains its models and records
+the test results. `BASELINES` maps each baseline number to its function.
 
-Important
----------
-- Final model evaluation is always on the MI test set.
-- IMU is not used during MI testing for Baseline 4 and 5.
-- Baselines 3, 6 and 7 use zero IMU during MI fine-tuning/testing, to test whether
-  simple ME+IMU pretraining is enough without distillation/prototype alignment.
+0. Time-lagged linear regression from EEG to velocity.
+1. EEG model trained on MI only.
+2. EEG model pretrained on ME, then fine-tuned on MI.
+3. EEG and IMU model pretrained on ME, then fine-tuned on MI with the IMU input set to
+   zero. The EEG and IMU features are fused by concatenation.
+4. A teacher (EEG and IMU) and a student (EEG only) trained together on ME, after which
+   the student is fine-tuned on MI.
+5. The full model: like 4, but with lag-aware fusion, a learned per-subject scale and
+   shift of the EEG features, and alignment to ME prototypes during MI fine-tuning.
+6. Like 3, with bidirectional cross-attention between the EEG and IMU features.
+7. Like 3, with self-attention over the fused EEG and IMU features.
+
+The final score of every baseline is on the MI test set. MI trials have no IMU, so no
+model sees a real IMU signal when it is tested on MI.
 """
 
 from dataclasses import dataclass
@@ -52,6 +49,7 @@ log = logging.getLogger(__name__)
 
 
 def baseline_0(exp: Experiment):
+    """Run Baseline 0: time-lagged ridge regression, fitted separately on ME and on MI."""
     name = "Baseline 0: Time-lagged MLR"
     for data, task, notes in (
         (exp.mi, "MI_test", "MI train+val -> MI test; time-lagged ridge-stabilized MLR"),
@@ -62,6 +60,7 @@ def baseline_0(exp: Experiment):
 
 
 def baseline_1(exp: Experiment):
+    """Run Baseline 1: train an EEG model on MI only."""
     name = "Baseline 1: MI-only EEG"
     objective = Supervised(eeg_only, exp.regression_loss())
     model = EEGOnlyModel(
@@ -92,6 +91,7 @@ def baseline_1(exp: Experiment):
 
 
 def baseline_2(exp: Experiment):
+    """Run Baseline 2: pretrain an EEG model on ME, then fine-tune it on MI."""
     name = "Baseline 2: ME EEG pretrain + MI fine-tune"
     objective = Supervised(eeg_only, exp.regression_loss())
     model = EEGOnlyModel(
@@ -132,11 +132,30 @@ def baseline_2(exp: Experiment):
 
 @dataclass(frozen=True)
 class FusionBaseline:
-    """Baselines 3, 6 and 7 differ only in the fusion block and their labels."""
+    """Settings for Baselines 3, 6 and 7.
+
+    These baselines share one training procedure, `fusion_baseline`. They differ only in
+    the fusion block and in the names and notes written to the results.
+
+    Attributes
+    ----------
+    id : int
+        Baseline number.
+    name : str
+        Baseline name in the results.
+    fusion : str
+        Fusion block for `FusionModel`: "concat", "cross_mha" or "self_mha".
+    pretrain_stage : str
+        Name of the ME pretraining stage in the "stages" sheet.
+    notes_after_pretrain, notes_mi_test, notes_me_after_finetune : str
+        Notes for the three evaluations in the "summary" sheet.
+    branch_real_imu, branch_zero_imu : str
+        Branch labels for the evaluations with the real IMU and with a zero IMU.
+    """
 
     id: int
     name: str
-    fusion: str  # "concat", "cross_mha" or "self_mha" (see models.FusionModel)
+    fusion: str
     pretrain_stage: str
     notes_after_pretrain: str
     notes_mi_test: str
@@ -183,7 +202,18 @@ FUSION_BASELINES = [
 
 
 def fusion_baseline(exp: Experiment, spec: FusionBaseline):
-    """ME EEG+IMU pretraining -> MI fine-tuning with zero IMU; no distillation/prototypes."""
+    """Run Baseline 3, 6 or 7.
+
+    The model is pretrained on ME with the EEG and the real IMU, then fine-tuned on MI
+    with the IMU input set to zero.
+
+    Parameters
+    ----------
+    exp : Experiment
+        The subject's data and results.
+    spec : FusionBaseline
+        Which of the three baselines to run.
+    """
     num_heads = {
         "cross_mha": exp.cfg.cross_attention_heads,
         "self_mha": exp.cfg.normal_mha_heads,
@@ -235,6 +265,7 @@ def fusion_baseline(exp: Experiment, spec: FusionBaseline):
 
 
 def baseline_4(exp: Experiment):
+    """Run Baseline 4: teacher-student distillation on ME, then fine-tune the student on MI."""
     cfg = exp.cfg
     name = "Baseline 4: ME distillation + MI fine-tune"
     model = DistillationSimpleModel(
@@ -253,7 +284,7 @@ def baseline_4(exp: Experiment):
     )
 
     exp.fit("B4 Stage 1: ME teacher-student distillation", model, "me", distill, exp.pretrain)
-    after_pretrain = exp.evaluate(model, "me_test", distill)  # one pass scores teacher and student
+    after_pretrain = exp.evaluate(model, "me_test", distill)
     exp.record(
         4,
         name,
@@ -293,6 +324,12 @@ def baseline_4(exp: Experiment):
 
 
 def baseline_5(exp: Experiment):
+    """Run Baseline 5, the full model.
+
+    Like Baseline 4, but the teacher uses lag-aware fusion, the student's EEG features
+    get a learned per-subject scale and shift, and MI fine-tuning also pulls the
+    student's features toward ME prototypes of the same target.
+    """
     cfg = exp.cfg
     name = "Baseline 5: Full model"
     model = FullPrivilegedModel(
@@ -314,7 +351,7 @@ def baseline_5(exp: Experiment):
     )
 
     exp.fit("B5 Stage 1: ME full privileged pretraining", model, "me", distill, exp.pretrain)
-    after_pretrain = exp.evaluate(model, "me_test", distill)  # one pass scores teacher and student
+    after_pretrain = exp.evaluate(model, "me_test", distill)
     exp.record(
         5,
         name,
@@ -346,7 +383,8 @@ def baseline_5(exp: Experiment):
         exp.finetune,
     )
 
-    student = PrototypeAlignedStudent(loss)  # evaluation: regression loss only
+    # Evaluate with the regression loss alone, without the prototype term.
+    student = PrototypeAlignedStudent(loss)
     exp.record(
         5,
         name,

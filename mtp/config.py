@@ -1,9 +1,14 @@
 """Project settings.
 
-Module-level constants describe the recordings and the epoch timing; they are the same
-for every run. `Config` holds the experiment settings for one run (one subject). Every
-`Config` field can be overridden from the command line, e.g. `--pretrain-epochs 5`
-(see `python -m mtp.modeling.train --help`).
+The module-level constants describe the recordings and stay the same for every run. EEG
+is sampled at ``EEG_FS`` = 512 Hz and the velocity targets at ``TRAJ_FS`` = 30 Hz. Each
+epoch covers -2 to 7 s around movement onset, and the models use the part from 0 to 5 s:
+``MODEL_EEG_SAMPLES`` = 2560 EEG samples and ``TARGET_LEN`` = 150 velocity samples. The
+IMU gives ``IMU_DIM`` = 6 signals: rotation velocity around x, y and z at the elbow and
+at the wrist.
+
+`Config` holds the settings of one run. Every setting can also be given on the command
+line; see ``python -m mtp.modeling.train --help``.
 """
 
 import argparse
@@ -14,21 +19,17 @@ import typing
 
 PROJ_ROOT = Path(__file__).resolve().parents[1]
 
-# ---- Recording and epoch timing ---------------------------------------------
-
 EEG_FS = 512.0
 TRAJ_FS = 30.0
 EPOCH_SEC = 5.0
-TARGET_LEN = int(TRAJ_FS * EPOCH_SEC)  # 150
-IMU_DIM = 6  # elbow + wrist rotational velocity, x/y/z each
+TARGET_LEN = int(TRAJ_FS * EPOCH_SEC)
+IMU_DIM = 6
 
-# EEG input epoch timing.
-# Input EEG epoch = -2..7 s, model uses 0..5 s after filter-bank filtering.
 EEG_EPOCH_TMIN = -2.0
 EEG_CROP_TMIN = 0.0
 EEG_CROP_TMAX = 5.0
 MODEL_EEG_SEC = EEG_CROP_TMAX - EEG_CROP_TMIN
-MODEL_EEG_SAMPLES = round(EEG_FS * MODEL_EEG_SEC)  # 2560
+MODEL_EEG_SAMPLES = round(EEG_FS * MODEL_EEG_SEC)
 
 BANDS = {
     "slow": (0.5, 1.0),
@@ -40,9 +41,7 @@ BANDS = {
     "low_gamma": (30.0, 45.0),
 }
 
-# ---- Targets and labels -----------------------------------------------------
-
-# Trajectory dict keys written by step 3 ("wirst" is the spelling used in the files).
+# The step 3 trajectory files spell the wrist key "wirst", so both spellings map to it.
 TRAJ_KEY_ALIAS = {
     "wrist": "wirst",
     "wirst": "wirst",
@@ -66,36 +65,119 @@ TARGET_STREAMS = ("wrist", "elbow", "shoulder", "imu", "all_xyz", "all_kin")
 BASELINE_IDS = tuple(range(8))
 
 
-# ---- Experiment settings ----------------------------------------------------
-
-
 @dataclass
 class Config:
-    # Data and output
+    """Settings for one training run on one subject.
+
+    The defaults reproduce the original experiment.
+
+    Attributes
+    ----------
+    subject : str
+        Subject ID, such as "s026".
+    data_dir : Path
+        Folder with the step 3 output files.
+    results_dir : Path
+        Folder for the Excel results and log files.
+    baselines : list of int
+        Baselines to run, from 0 to 7. `mtp.modeling.baselines` describes each one.
+    target_stream : str
+        Which velocities the models predict. "shoulder", "elbow" or "wrist" gives the x,
+        y and z velocity of one joint (3 outputs), and "imu" the 6 IMU rotation
+        velocities. "all_xyz" covers all three joints (9 outputs) and "all_kin" adds the
+        IMU (15 outputs).
+    use_filterbank : bool
+        Split the EEG into the frequency bands in `BANDS`. If False, the models get one
+        broadband signal.
+    eeg_clip_value : float
+        EEG is z-scored per trial and channel, then clipped to this many standard
+        deviations either side of zero, which limits the effect of leftover artifacts.
+    test_fraction : float
+        Share of all trials held out for testing.
+    val_fraction : float
+        Share of the remaining trials used for validation. 0.1765 of the remaining 85%
+        is about 15% of all trials.
+    device : str
+        "auto" uses the GPU when there is one. Otherwise "cpu", "cuda" or
+        "cuda:<index>".
+    seed : int
+        Random seed. It is reset before each baseline, so a baseline's results do not
+        depend on which other baselines run.
+    deterministic : bool
+        Use only deterministic algorithms, so that a rerun with the same seed gives
+        identical results. Without this, results on the GPU vary slightly between runs.
+    batch_size : int
+        Trials per training batch.
+    pretrain_epochs, finetune_epochs : int
+        Maximum number of epochs for ME pretraining and for MI training.
+    patience_pretrain, patience_finetune : int
+        A training stage stops early after this many epochs without a lower validation
+        loss.
+    pretrain_lr, finetune_lr : float
+        AdamW learning rates for ME pretraining and for MI training.
+    weight_decay : float
+        AdamW weight decay.
+    grad_clip_norm : float
+        Gradients are scaled down when their total norm is larger than this.
+    lr_decay_factor : float
+        The learning rate is multiplied by this factor when the validation loss stops
+        improving.
+    lr_decay_patience : int
+        Number of epochs without improvement that are allowed before the learning rate
+        decays.
+    latent_dim : int
+        Number of feature channels inside the models.
+    dropout : float
+        Dropout rate used throughout the models.
+    lag_radius : int
+        Baseline 5: the lag-aware fusion compares the EEG with the IMU shifted by up to
+        this many samples in either direction.
+    cross_attention_heads : int
+        Number of attention heads in the cross-modal fusion of Baseline 6.
+    normal_mha_heads : int
+        Number of attention heads in the self-attention fusion of Baseline 7.
+    corr_loss_weight : float
+        The regression loss is the Huber loss plus this weight times (1 - correlation).
+        The correlation term rewards getting the shape of each velocity curve right.
+    huber_beta : float
+        Threshold of the Huber part of the regression loss.
+    teacher_loss_weight, student_sup_loss_weight, kd_loss_weight : float
+        Baselines 4 and 5 train a teacher and a student together. These weights set how
+        much the teacher's error, the student's error and the gap between the student
+        and the teacher count in the loss.
+    kd_beta : float
+        SmoothL1 threshold for the gap between the student and the teacher.
+    proto_loss_weight : float
+        Baseline 5: weight of the term that pulls MI features toward the ME prototype of
+        the same target.
+    baseline0_use_ridge : bool
+        Baseline 0: use ridge regression. If False, use ordinary least squares.
+    baseline0_ridge_alpha : float
+        Baseline 0: strength of the ridge penalty.
+    linear_lags_sec : list of float
+        Baseline 0: lags in seconds. The velocity at time t is predicted from the EEG
+        around t + lag for each lag, so -0.3 means 300 ms before t.
+    linear_lag_window_sec : float
+        Baseline 0: length in seconds of the EEG window averaged around each lag.
+    """
+
     subject: str = "s026"
     data_dir: Path = PROJ_ROOT / "data" / "processed"
     results_dir: Path = PROJ_ROOT / "reports" / "baseline_results"
 
-    # Baselines to run (0-7, described in mtp/modeling/baselines.py)
     baselines: list[int] = field(
         default_factory=lambda: [0, 1, 2, 3, 6, 7], metadata={"choices": BASELINE_IDS}
     )
-
-    # Main output target:
-    # "wrist" / "elbow" / "shoulder" -> Vx,Vy,Vz of that joint (3 dims); "imu" -> 6 dims
-    # "all_xyz" -> shoulder+elbow+wrist (9 dims); "all_kin" -> all_xyz + IMU (15 dims)
     target_stream: str = field(default="all_xyz", metadata={"choices": TARGET_STREAMS})
 
-    # Preprocessing and split
     use_filterbank: bool = True
-    eeg_clip_value: float = 8.0  # z-scored EEG is clipped to +-this value
-    test_fraction: float = 0.15  # of all trials
-    val_fraction: float = 0.1765  # of the trials left after the test split (about 15% of all)
+    eeg_clip_value: float = 8.0
+    test_fraction: float = 0.15
+    val_fraction: float = 0.1765
 
-    # Training
-    device: str = "auto"  # "auto" (GPU if available), "cpu", "cuda" or "cuda:<index>"
+    device: str = "auto"
     seed: int = 42
-    deterministic: bool = True  # same seed -> same results, also on GPU (slightly slower)
+    deterministic: bool = True
     batch_size: int = 8
     pretrain_epochs: int = 80
     finetune_epochs: int = 60
@@ -105,37 +187,30 @@ class Config:
     finetune_lr: float = 2e-4
     weight_decay: float = 1e-4
     grad_clip_norm: float = 5.0
-    lr_decay_factor: float = (
-        0.5  # multiply the learning rate by this when validation loss plateaus
-    )
-    lr_decay_patience: int = 4  # epochs without improvement before the learning rate decays
+    lr_decay_factor: float = 0.5
+    lr_decay_patience: int = 4
 
-    # Deep model settings
     latent_dim: int = 64
     dropout: float = 0.20
     lag_radius: int = 3
-    cross_attention_heads: int = 4  # Used by Baseline 6 bidirectional cross-modal MHA fusion.
-    normal_mha_heads: int = 4  # Used by Baseline 7 normal MHA fusion.
+    cross_attention_heads: int = 4
+    normal_mha_heads: int = 4
 
-    # Loss settings
-    corr_loss_weight: float = 0.10  # regression loss = Huber + this * (1 - correlation)
+    corr_loss_weight: float = 0.10
     huber_beta: float = 0.5
     teacher_loss_weight: float = 1.0
     student_sup_loss_weight: float = 1.0
     kd_loss_weight: float = 0.5
-    kd_beta: float = 0.5  # SmoothL1 beta of the distillation loss
+    kd_beta: float = 0.5
     proto_loss_weight: float = 0.2
 
-    # Baseline 0: time-lagged MLR.
-    # Each velocity sample y(t) is predicted from EEG features around t + lag.
-    # Negative lags mean EEG before the target velocity sample.
-    # Example: -0.300 means EEG 300 ms before the current velocity sample.
     baseline0_use_ridge: bool = True
     baseline0_ridge_alpha: float = 10.0
     linear_lags_sec: list[float] = field(default_factory=lambda: [-0.300, -0.200, -0.100, 0.000])
-    linear_lag_window_sec: float = 0.050  # average EEG within ±25 ms around each lag center
+    linear_lag_window_sec: float = 0.050
 
     def __post_init__(self):
+        """Check the settings and turn the folder settings into `Path` objects."""
         if not isinstance(self.subject, str):
             raise TypeError(f"subject must be one ID such as 's026', got {self.subject!r}")
         self.data_dir = Path(self.data_dir)
@@ -170,11 +245,24 @@ class Config:
 
     @property
     def result_xlsx_path(self) -> Path:
+        """Path of the Excel file with this run's results."""
         return self.results_dir / f"baseline_results_{self.subject}_multihead.xlsx"
 
 
 def add_config_arguments(parser: argparse.ArgumentParser, skip=("subject",)):
-    """Add a `--field-name` option for every Config field (defaults come from Config)."""
+    """Add a command-line option for each `Config` field.
+
+    Field names become options with dashes, so ``pretrain_epochs`` becomes
+    ``--pretrain-epochs``. Boolean fields get a pair of options, such as
+    ``--use-filterbank`` and ``--no-use-filterbank``.
+
+    Parameters
+    ----------
+    parser : argparse.ArgumentParser
+        Parser to add the options to.
+    skip : tuple of str
+        Fields to leave out.
+    """
     defaults = Config()
     for f in fields(Config):
         if f.name in skip:
@@ -192,10 +280,30 @@ def add_config_arguments(parser: argparse.ArgumentParser, skip=("subject",)):
 
 
 def config_from_args(args: argparse.Namespace, skip=("subject",), **overrides) -> Config:
-    """
-    Build a Config from parsed arguments; options left unset keep their defaults.
-    Fields in `skip` are not read from `args` (pass them as overrides instead).
-    Raises ValueError (or TypeError) for invalid settings.
+    """Build a `Config` from parsed command-line arguments.
+
+    Options that were not given keep their default values.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Arguments parsed with the options from `add_config_arguments`.
+    skip : tuple of str
+        Fields not to read from `args`. ``subject`` is skipped by default because the
+        command line accepts several subjects; pass one in `overrides` instead.
+    **overrides
+        Field values that take precedence over `args`.
+
+    Returns
+    -------
+    Config
+
+    Raises
+    ------
+    ValueError
+        If a setting has an invalid value.
+    TypeError
+        If `subject` is not a single string.
     """
     values = {
         f.name: getattr(args, f.name)

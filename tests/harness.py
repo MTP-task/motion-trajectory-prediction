@@ -1,10 +1,10 @@
-"""Helpers for the golden-output regression test (test_golden.py, make_golden.py).
+"""Helpers shared by the tests: mock data, running the pipeline, and comparing results.
 
-Both run the pipeline in a subprocess on CPU, on small mock data, with every baseline
-for a few epochs:
-- the current package through its command line (`python -m mtp.modeling.train ...`);
-- an old single-file version of the script from git, whose settings are plain
-  assignments such as `PRETRAIN_EPOCHS = 80` that we rewrite in a temp copy.
+The pipeline runs in a subprocess, in one of two forms:
+- the current package, through its command line (`python -m mtp.modeling.train ...`);
+- an old single-file version of the script from git (used by make_golden.py --script).
+  Its settings are plain assignments such as `PRETRAIN_EPOCHS = 80`, which are
+  rewritten in a temporary copy.
 """
 
 import os
@@ -26,7 +26,7 @@ SHEETS = ["summary", "axis_metrics", "stages"]
 
 
 def mock_cli_args(data_dir):
-    """Command-line options that run every baseline for a few epochs on the mock data."""
+    """Return command-line options that run every baseline for 3 epochs on mock data."""
     return [
         "--subject",
         SUBJECT,
@@ -50,7 +50,7 @@ def mock_cli_args(data_dir):
 
 
 def legacy_script_settings(data_dir):
-    """The same settings for the original single-file script (see run_script)."""
+    """Return the same settings for the original single-file script (see `run_script`)."""
     return {
         "subject": SUBJECT,
         "DATA_DIR": str(data_dir),
@@ -65,12 +65,25 @@ def legacy_script_settings(data_dir):
 def write_mock_data(
     data_dir, subject=SUBJECT, n_channels=8, n_samples=4609, seed=0, layout="flat"
 ):
-    """Write a small random dataset in the same format as step 3's output.
+    """Write a small random dataset in the format of step 3's output.
 
-    Real data: EEG (N, 64, 4609) in volts, labels 101-104, and a trajectory dict of
-    (N, 150, 3|6) arrays. Here N is 48 per condition and there are 8 channels.
-    layout: "flat" (all files in data_dir, as on the lab PC) or "subfolders" (as in
-    data/processed).
+    The real data has 64 EEG channels and about 240 trials per condition. The mock data
+    has `n_channels` channels and 48 trials per condition, with the same epoch length,
+    labels and trajectory keys.
+
+    Parameters
+    ----------
+    data_dir : str or Path
+        Folder to write to.
+    subject : str
+        Subject ID used in the file names.
+    n_channels, n_samples : int
+        Size of each EEG epoch.
+    seed : int
+        Random seed, so the data is the same on every call.
+    layout : {"flat", "subfolders"}
+        All files in `data_dir`, as on the lab PC, or in the subfolders used in
+        data/processed.
     """
     data_dir = Path(data_dir)
     rng = np.random.default_rng(seed)
@@ -83,7 +96,7 @@ def write_mock_data(
         trajectory = {
             "shoulder": rng.normal(size=(n, 150, 3)),
             "elbow": rng.normal(size=(n, 150, 3)),
-            "wirst": rng.normal(size=(n, 150, 3)),  # key spelling used by the pipeline
+            "wirst": rng.normal(size=(n, 150, 3)),  # step 3 files spell the wrist key this way
             "IMU": rng.normal(size=(n, 150, 6)),
         }
         for kind, array in {"eeg": eeg, "trajectory": trajectory, "labels": labels}.items():
@@ -98,7 +111,10 @@ def write_mock_data(
 
 
 def patch_settings(path, settings):
-    """Rewrite each top-level `NAME = ...` line in `path`; each must appear exactly once."""
+    """Replace the top-level ``NAME = ...`` line of each setting in a script.
+
+    Raises RuntimeError unless each name has exactly one such line.
+    """
     text = path.read_text(encoding="utf-8")
     for name, value in settings.items():
         pattern = re.compile(rf"^{re.escape(name)}\s*=.*$", re.MULTILINE)
@@ -115,9 +131,17 @@ def run_package(data_dir):
 
 
 def run_cli(args, check=True, gpu=False):
-    """Run `python -m mtp.modeling.train <args>` and return the finished process.
+    """Run ``python -m mtp.modeling.train`` with `args` and return the finished process.
 
-    The GPU is hidden unless gpu=True, so results do not depend on the machine.
+    Parameters
+    ----------
+    args : list of str
+        Command-line arguments.
+    check : bool
+        Raise RuntimeError, with the end of the output, if the run fails.
+    gpu : bool
+        Let the run see the GPU. By default it is hidden, because the golden results
+        are CPU results.
     """
     return _run(
         [sys.executable, "-m", "mtp.modeling.train", *args], REPO_ROOT, check=check, gpu=gpu
@@ -125,7 +149,7 @@ def run_cli(args, check=True, gpu=False):
 
 
 def run_script(workdir, git_spec, settings):
-    """Run a single-file version of the pipeline taken from git, e.g. 'REF:path/to/script.py'."""
+    """Run a single-file version of the pipeline from git, such as "REF:path/to/script.py"."""
     source = subprocess.run(
         ["git", "-C", str(REPO_ROOT), "show", git_spec], capture_output=True, check=True
     ).stdout
@@ -153,24 +177,32 @@ def _run(cmd, cwd, check=True, gpu=False):
 
 
 def result_path(data_dir, subject=SUBJECT):
+    """Return where a run with `mock_cli_args` writes the Excel results."""
     return Path(data_dir) / "baseline_results" / f"baseline_results_{subject}_multihead.xlsx"
 
 
 def read_results(xlsx_path):
+    """Read the compared sheets of a results file into DataFrames, keyed by sheet name."""
     return {sheet: pd.read_excel(xlsx_path, sheet_name=sheet) for sheet in SHEETS}
 
 
 def save_golden(results, golden_dir=GOLDEN_DIR):
+    """Save results from `read_results` as the expected results, one CSV file per sheet."""
     golden_dir.mkdir(exist_ok=True)
     for sheet, df in results.items():
         df.to_csv(golden_dir / f"{sheet}.csv", index=False)
 
 
 def load_golden(golden_dir=GOLDEN_DIR):
+    """Load the expected results saved by `save_golden`."""
     return {sheet: pd.read_csv(golden_dir / f"{sheet}.csv") for sheet in SHEETS}
 
 
 def assert_same_results(actual, expected, rtol=1e-5, atol=1e-8):
+    """Check that two sets of results have the same columns, rows and values.
+
+    Numbers must match within `rtol` and `atol`; text must match exactly.
+    """
     for sheet in SHEETS:
         a, e = actual[sheet], expected[sheet]
         assert list(a.columns) == list(e.columns), f"{sheet}: columns differ"

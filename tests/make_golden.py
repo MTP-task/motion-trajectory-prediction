@@ -11,12 +11,14 @@ from pathlib import Path
 import sys
 import tempfile
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # import mtp without installing it
+# Lets this script import mtp from the repo even when the package is not installed.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import harness
 
 
 def main():
+    """Run the pipeline on mock data and save its results as the new expected results."""
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

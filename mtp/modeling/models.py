@@ -1,6 +1,8 @@
-"""Encoders, fusion blocks and the models used by the baselines.
+"""Encoders, fusion blocks and the models of the deep baselines.
 
-All sequence features are (batch, latent_dim, time) with time = TARGET_LEN (150).
+Inside the models, sequence features have shape (batch, latent_dim, n_times), where
+n_times is 150 to match the 30 Hz velocity targets. Velocity outputs have shape
+(batch, 150, n_outputs).
 """
 
 import math
@@ -13,11 +15,22 @@ from mtp.config import IMU_DIM
 
 
 def linear_resample_matrix(n_in: int, n_out: int) -> torch.Tensor:
-    """
-    Matrix W such that `x @ W` equals
-    `F.interpolate(x, size=n_out, mode="linear", align_corners=False)` for x of shape
-    (..., n_in). W is read off PyTorch's own interpolation weights. Unlike interpolate,
-    a matrix product has a deterministic backward pass on the GPU.
+    """Return a matrix that linearly resamples the last axis of a tensor.
+
+    ``x @ W`` gives the same result as
+    ``F.interpolate(x, size=n_out, mode="linear", align_corners=False)``. W is made by
+    interpolating an identity matrix, so it uses PyTorch's own weights. The EEG encoder
+    multiplies by W instead of calling F.interpolate because F.interpolate has no
+    deterministic backward pass on the GPU.
+
+    Parameters
+    ----------
+    n_in, n_out : int
+        Number of points before and after resampling.
+
+    Returns
+    -------
+    Tensor, shape (n_in, n_out)
     """
     with torch.no_grad():
         identity = torch.eye(n_in).unsqueeze(0)
@@ -25,6 +38,20 @@ def linear_resample_matrix(n_in: int, n_out: int) -> torch.Tensor:
 
 
 class TCNBlock(nn.Module):
+    """Two dilated 1-D convolutions with a residual connection.
+
+    Parameters
+    ----------
+    channels : int
+        Number of input and output channels.
+    kernel_size : int
+        Convolution kernel size.
+    dilation : int
+        Spacing between kernel taps. Larger values look further back and ahead in time.
+    dropout : float
+        Dropout rate.
+    """
+
     def __init__(
         self, channels: int, kernel_size: int = 3, dilation: int = 1, dropout: float = 0.15
     ):
@@ -42,10 +69,36 @@ class TCNBlock(nn.Module):
         )
 
     def forward(self, x):
+        """Apply the block to x of shape (batch, channels, n_times); the shape is kept."""
         return x + self.net(x)
 
 
 class EEGEncoder(nn.Module):
+    """Turn filter-bank EEG into features at the velocity sampling rate.
+
+    Each band first goes through its own temporal convolutions and pooling. The bands
+    are then stacked, a spatial convolution combines all channels, and four dilated TCN
+    blocks model the time course. With 5 s of EEG at 512 Hz the pooling leaves 320 time
+    steps, which are resampled linearly to `target_len`.
+
+    Parameters
+    ----------
+    n_bands : int
+        Number of filter-bank bands.
+    n_channels : int
+        Number of EEG channels.
+    target_len : int
+        Number of time steps in the output.
+    temporal_filters : int
+        Temporal filters per band.
+    spatial_filters : int
+        Spatial filters across channels.
+    latent_dim : int
+        Number of output features.
+    dropout : float
+        Dropout rate.
+    """
+
     def __init__(
         self,
         n_bands: int,
@@ -59,7 +112,8 @@ class EEGEncoder(nn.Module):
         super().__init__()
         self.n_bands = n_bands
         self.target_len = target_len
-        self._resample = None  # time-resampling matrix, built on first use
+        # Built on the first forward pass, when the input length is known.
+        self._resample = None
 
         self.band_temporal = nn.ModuleList(
             [
@@ -114,6 +168,17 @@ class EEGEncoder(nn.Module):
         )
 
     def forward(self, x):
+        """Encode filter-bank EEG.
+
+        Parameters
+        ----------
+        x : Tensor, shape (batch, n_bands, n_channels, n_samples)
+            EEG from `make_eeg_input`.
+
+        Returns
+        -------
+        Tensor, shape (batch, latent_dim, target_len)
+        """
         band_feats = []
         for b in range(self.n_bands):
             xb = x[:, b : b + 1, :, :]
@@ -125,7 +190,6 @@ class EEGEncoder(nn.Module):
         h = h.squeeze(2)
         h = self.proj(h)
         h = self.tcn(h)
-        # Linear resampling of time to target_len (320 -> 150 for 5 s at 512 Hz).
         return h @ self._resample_matrix(h)
 
     def _resample_matrix(self, h):
@@ -139,6 +203,18 @@ class EEGEncoder(nn.Module):
 
 
 class IMUEncoder(nn.Module):
+    """Turn the IMU signals into features.
+
+    Parameters
+    ----------
+    in_dim : int
+        Number of IMU signals.
+    latent_dim : int
+        Number of output features.
+    dropout : float
+        Dropout rate.
+    """
+
     def __init__(self, in_dim: int = 6, latent_dim: int = 64, dropout: float = 0.20):
         super().__init__()
         self.net = nn.Sequential(
@@ -155,11 +231,33 @@ class IMUEncoder(nn.Module):
         )
 
     def forward(self, imu):
+        """Encode the IMU signals.
+
+        Parameters
+        ----------
+        imu : Tensor, shape (batch, n_times, in_dim)
+
+        Returns
+        -------
+        Tensor, shape (batch, latent_dim, n_times)
+        """
         x = imu.permute(0, 2, 1).contiguous()
         return self.net(x)
 
 
 class SeqHead(nn.Module):
+    """Map features to velocities with two 1x1 convolutions.
+
+    Parameters
+    ----------
+    latent_dim : int
+        Number of input features.
+    out_dim : int
+        Number of velocity outputs.
+    dropout : float
+        Dropout rate.
+    """
+
     def __init__(self, latent_dim: int, out_dim: int, dropout: float = 0.20):
         super().__init__()
         self.net = nn.Sequential(
@@ -170,11 +268,37 @@ class SeqHead(nn.Module):
         )
 
     def forward(self, h):
+        """Map features to velocities.
+
+        Parameters
+        ----------
+        h : Tensor, shape (batch, latent_dim, n_times)
+
+        Returns
+        -------
+        Tensor, shape (batch, n_times, out_dim)
+        """
         y = self.net(h)
         return y.permute(0, 2, 1).contiguous()
 
 
 class EEGOnlyModel(nn.Module):
+    """EEG encoder followed by a head, used by Baselines 1 and 2.
+
+    Parameters
+    ----------
+    n_bands, n_channels : int
+        Number of filter-bank bands and EEG channels in the input.
+    out_dim : int
+        Number of velocity outputs.
+    target_len : int
+        Number of output time steps.
+    latent_dim : int
+        Number of feature channels.
+    dropout : float
+        Dropout rate.
+    """
+
     def __init__(self, n_bands, n_channels, out_dim, target_len=150, latent_dim=64, dropout=0.20):
         super().__init__()
         self.eeg_encoder = EEGEncoder(
@@ -183,13 +307,22 @@ class EEGOnlyModel(nn.Module):
         self.head = SeqHead(latent_dim, out_dim, dropout)
 
     def forward(self, eeg):
+        """Predict velocities, shape (batch, target_len, out_dim), from filter-bank EEG."""
         h = self.eeg_encoder(eeg)
         y = self.head(h)
         return y
 
 
 class ConcatFusion(nn.Module):
-    """Simple fusion: concatenate EEG and IMU features, then a 1x1 conv and a TCN block."""
+    """Fuse EEG and IMU features by concatenation, a 1x1 convolution and a TCN block.
+
+    Parameters
+    ----------
+    latent_dim : int
+        Number of features in each input and in the output.
+    dropout : float
+        Dropout rate.
+    """
 
     def __init__(self, latent_dim: int, dropout: float = 0.20):
         super().__init__()
@@ -202,25 +335,28 @@ class ConcatFusion(nn.Module):
         )
 
     def forward(self, h_eeg, h_imu):
+        """Fuse two feature maps of shape (batch, latent_dim, n_times) into one."""
         return self.net(torch.cat([h_eeg, h_imu], dim=1))
 
 
 class BidirectionalCrossModalAttentionFusion(nn.Module):
-    """
-    Bidirectional Cross-Modal Multi-Head Attention fusion for EEG and IMU features.
+    """Fuse EEG and IMU features with attention in both directions (Baseline 6).
 
-    Input tensors:
-        h_eeg: (batch, latent_dim, time)
-        h_imu: (batch, latent_dim, time)
+    The EEG features attend to the IMU features and the IMU features attend to the EEG
+    features. The original and attended features of both are concatenated, projected
+    back to `latent_dim` and added to the EEG features, and a TCN block follows.
 
-    Fusion logic:
-        1) EEG queries IMU: Q=EEG, K/V=IMU
-        2) IMU queries EEG: Q=IMU, K/V=EEG
-        3) Concatenate original and cross-attended features
-        4) Project back to latent_dim and keep an EEG residual path
+    The EEG features are added back because MI fine-tuning and testing use an all-zero
+    IMU input, so the model must not come to rely on the IMU entirely.
 
-    The residual EEG path is important for Baseline 6 because MI fine-tuning/testing
-    uses zero IMU, so the model should not become completely dependent on IMU.
+    Parameters
+    ----------
+    latent_dim : int
+        Number of features. Must be divisible by `num_heads`.
+    num_heads : int
+        Number of attention heads in each direction.
+    dropout : float
+        Dropout rate.
     """
 
     def __init__(self, latent_dim: int, num_heads: int = 4, dropout: float = 0.20):
@@ -262,14 +398,14 @@ class BidirectionalCrossModalAttentionFusion(nn.Module):
         )
 
     def forward(self, h_eeg, h_imu):
-        # Convert from Conv1D format (B, D, T) to token format (B, T, D).
+        """Fuse two feature maps of shape (batch, latent_dim, n_times) into one."""
+        # nn.MultiheadAttention works on (batch, n_times, latent_dim).
         eeg_tokens = h_eeg.permute(0, 2, 1).contiguous()
         imu_tokens = h_imu.permute(0, 2, 1).contiguous()
 
         eeg_q = self.eeg_norm(eeg_tokens)
         imu_q = self.imu_norm(imu_tokens)
 
-        # EEG attends to IMU: use EEG as query and IMU as key/value.
         eeg_from_imu, _ = self.eeg_to_imu(
             query=eeg_q,
             key=imu_q,
@@ -278,7 +414,6 @@ class BidirectionalCrossModalAttentionFusion(nn.Module):
         )
         eeg_from_imu = self.eeg_cross_norm(eeg_tokens + self.attn_dropout(eeg_from_imu))
 
-        # IMU attends to EEG: use IMU as query and EEG as key/value.
         imu_from_eeg, _ = self.imu_to_eeg(
             query=imu_q,
             key=eeg_q,
@@ -287,40 +422,37 @@ class BidirectionalCrossModalAttentionFusion(nn.Module):
         )
         imu_from_eeg = self.imu_cross_norm(imu_tokens + self.attn_dropout(imu_from_eeg))
 
-        # Fuse both original and cross-modal context features.
         fused_tokens = torch.cat(
             [eeg_tokens, imu_tokens, eeg_from_imu, imu_from_eeg],
             dim=-1,
         )
         fused_tokens = self.fusion_proj(fused_tokens)
 
-        # EEG residual path helps preserve EEG-only decoding ability for MI with zero IMU.
         fused_tokens = fused_tokens + eeg_tokens
 
-        # Convert back to Conv1D format (B, D, T), then refine temporally.
         fused = fused_tokens.permute(0, 2, 1).contiguous()
         return self.out(fused)
 
 
 class NormalMultiHeadAttentionFusion(nn.Module):
-    """
-    Normal Multi-Head Attention fusion for EEG and IMU features.
+    """Fuse EEG and IMU features with self-attention (Baseline 7).
 
-    Input tensors:
-        h_eeg: (batch, latent_dim, time)
-        h_imu: (batch, latent_dim, time)
+    The EEG and IMU features are concatenated and projected into one feature map.
+    Multi-head self-attention and a small feed-forward layer refine it over time, the
+    EEG features are added back, and a TCN block follows.
 
-    Fusion logic:
-        1) Concatenate EEG and IMU latent features along the channel dimension
-        2) Project concatenated features back to latent_dim
-        3) Apply normal multi-head self-attention with Q=K=V=fused tokens
-        4) Refine with a small feed-forward block and TCNBlock
+    Unlike `BidirectionalCrossModalAttentionFusion`, the attention runs over the already
+    fused features rather than between the two signals. The EEG features are added back
+    for the same reason: MI uses an all-zero IMU input.
 
-    Difference from Baseline 6:
-        - Baseline 6 uses cross-modal attention: EEG queries IMU and IMU queries EEG.
-        - Baseline 7 uses normal self-attention after initial EEG+IMU feature fusion.
-
-    The EEG residual path helps preserve an EEG-only route when MI uses zero IMU.
+    Parameters
+    ----------
+    latent_dim : int
+        Number of features. Must be divisible by `num_heads`.
+    num_heads : int
+        Number of attention heads.
+    dropout : float
+        Dropout rate.
     """
 
     def __init__(self, latent_dim: int, num_heads: int = 4, dropout: float = 0.20):
@@ -361,13 +493,12 @@ class NormalMultiHeadAttentionFusion(nn.Module):
         )
 
     def forward(self, h_eeg, h_imu):
-        # First make one fused latent stream in Conv1D format: (B, D, T).
+        """Fuse two feature maps of shape (batch, latent_dim, n_times) into one."""
         h0 = self.input_proj(torch.cat([h_eeg, h_imu], dim=1))
 
-        # Convert to token format for PyTorch MultiheadAttention: (B, T, D).
+        # nn.MultiheadAttention works on (batch, n_times, latent_dim).
         tokens = h0.permute(0, 2, 1).contiguous()
 
-        # Normal MHA: Q, K, and V all come from the same fused EEG+IMU tokens.
         attn_in = self.attn_norm(tokens)
         attn_out, _ = self.self_attn(
             query=attn_in,
@@ -377,15 +508,12 @@ class NormalMultiHeadAttentionFusion(nn.Module):
         )
         tokens = tokens + self.attn_dropout(attn_out)
 
-        # Small Transformer-style feed-forward refinement.
         ffn_in = self.ffn_norm(tokens)
         tokens = tokens + self.ffn(ffn_in)
 
-        # EEG residual path helps MI fine-tuning/testing with zero IMU.
         eeg_tokens = h_eeg.permute(0, 2, 1).contiguous()
         tokens = tokens + eeg_tokens
 
-        # Convert back to Conv1D format and refine temporally.
         fused = tokens.permute(0, 2, 1).contiguous()
         return self.out(fused)
 
@@ -394,6 +522,7 @@ FUSION_BLOCKS = ("concat", "cross_mha", "self_mha")
 
 
 def make_fusion_block(fusion: str, latent_dim: int, num_heads: int = 4, dropout: float = 0.20):
+    """Create the fusion block named `fusion`: "concat", "cross_mha" or "self_mha"."""
     if fusion == "concat":
         return ConcatFusion(latent_dim, dropout)
     if fusion == "cross_mha":
@@ -404,11 +533,28 @@ def make_fusion_block(fusion: str, latent_dim: int, num_heads: int = 4, dropout:
 
 
 class FusionModel(nn.Module):
-    """
-    Baselines 3, 6 and 7: EEG + IMU encoders -> fusion block -> trajectory head.
+    """EEG and IMU model of Baselines 3, 6 and 7.
 
-    ME uses the real IMU; MI uses the same model with an all-zero IMU input.
-    fusion: "concat" (Baseline 3), "cross_mha" (Baseline 6) or "self_mha" (Baseline 7).
+    An EEG encoder and an IMU encoder feed a fusion block, and a head turns the fused
+    features into velocities. ME trials use the recorded IMU; MI trials use the same
+    model with an all-zero IMU input.
+
+    Parameters
+    ----------
+    fusion : {"concat", "cross_mha", "self_mha"}
+        Fusion block of Baseline 3, 6 or 7.
+    n_bands, n_channels : int
+        Number of filter-bank bands and EEG channels in the input.
+    out_dim : int
+        Number of velocity outputs.
+    target_len : int
+        Number of output time steps.
+    latent_dim : int
+        Number of feature channels.
+    num_heads : int
+        Number of attention heads. Not used by "concat".
+    dropout : float
+        Dropout rate.
     """
 
     def __init__(
@@ -431,6 +577,17 @@ class FusionModel(nn.Module):
         self.head = SeqHead(latent_dim, out_dim, dropout)
 
     def forward(self, eeg, imu):
+        """Predict velocities from EEG and IMU.
+
+        Parameters
+        ----------
+        eeg : Tensor, shape (batch, n_bands, n_channels, n_samples)
+        imu : Tensor, shape (batch, target_len, 6)
+
+        Returns
+        -------
+        Tensor, shape (batch, target_len, out_dim)
+        """
         h_eeg = self.eeg_encoder(eeg)
         h_imu = self.imu_encoder(imu)
         h = self.fusion(h_eeg, h_imu)
@@ -438,10 +595,23 @@ class FusionModel(nn.Module):
 
 
 class DistillationSimpleModel(nn.Module):
-    """
-    Baseline 4:
-    Teacher: EEG+IMU simple fusion
-    Student: EEG only
+    """Teacher-student model of Baseline 4.
+
+    One EEG encoder feeds two heads. The teacher head sees the EEG features fused with
+    the IMU features by `ConcatFusion`; the student head sees only the EEG features.
+
+    Parameters
+    ----------
+    n_bands, n_channels : int
+        Number of filter-bank bands and EEG channels in the input.
+    out_dim : int
+        Number of velocity outputs.
+    target_len : int
+        Number of output time steps.
+    latent_dim : int
+        Number of feature channels.
+    dropout : float
+        Dropout rate.
     """
 
     def __init__(self, n_bands, n_channels, out_dim, target_len=150, latent_dim=64, dropout=0.20):
@@ -455,6 +625,12 @@ class DistillationSimpleModel(nn.Module):
         self.student_head = SeqHead(latent_dim, out_dim, dropout)
 
     def forward_teacher_student(self, eeg, imu):
+        """Predict with both heads.
+
+        Returns
+        -------
+        y_teacher, y_student : Tensor, shape (batch, target_len, out_dim)
+        """
         h_eeg = self.eeg_encoder(eeg)
         h_imu = self.imu_encoder(imu)
         h_teacher = self.fusion(h_eeg, h_imu)
@@ -463,11 +639,24 @@ class DistillationSimpleModel(nn.Module):
         return y_teacher, y_student
 
     def forward_student(self, eeg):
+        """Predict from the EEG alone with the student head."""
         h_eeg = self.eeg_encoder(eeg)
         return self.student_head(h_eeg)
 
 
 class SubjectFiLM(nn.Module):
+    """Scale and shift EEG features with values learned for each subject.
+
+    The scale starts at 1 and the shift at 0, so the layer starts as an identity.
+
+    Parameters
+    ----------
+    n_subjects : int
+        Number of subjects with their own scale and shift.
+    latent_dim : int
+        Number of features.
+    """
+
     def __init__(self, n_subjects: int, latent_dim: int):
         super().__init__()
         self.gamma = nn.Embedding(n_subjects, latent_dim)
@@ -476,12 +665,38 @@ class SubjectFiLM(nn.Module):
         nn.init.zeros_(self.beta.weight)
 
     def forward(self, h, subject_id):
+        """Apply each trial's subject scale and shift.
+
+        Parameters
+        ----------
+        h : Tensor, shape (batch, latent_dim, n_times)
+            EEG features.
+        subject_id : Tensor of int, shape (batch,)
+            Subject index of each trial.
+        """
         gamma = self.gamma(subject_id).unsqueeze(-1)
         beta = self.beta(subject_id).unsqueeze(-1)
         return gamma * h + beta
 
 
 class LagAwareFusion(nn.Module):
+    """Fuse EEG and IMU features while allowing for a time lag between them (Baseline 5).
+
+    At each time step, the EEG features are compared with the IMU features shifted by
+    -lag_radius to +lag_radius steps. A softmax over these lags weights the shifted IMU
+    features into one context vector. A learned gate decides how much of the context is
+    added to the EEG features, and a TCN block follows.
+
+    Parameters
+    ----------
+    latent_dim : int
+        Number of features.
+    lag_radius : int
+        Largest shift in time steps. At 30 Hz, 3 steps is 100 ms.
+    dropout : float
+        Dropout rate.
+    """
+
     def __init__(self, latent_dim: int, lag_radius: int = 3, dropout: float = 0.20):
         super().__init__()
         self.latent_dim = latent_dim
@@ -512,6 +727,10 @@ class LagAwareFusion(nn.Module):
 
     @staticmethod
     def shift_time(x, lag: int):
+        """Shift x along its last (time) axis by `lag` steps, filling the gap with zeros.
+
+        A positive lag moves later values earlier: ``out[..., t] = x[..., t + lag]``.
+        """
         if lag == 0:
             return x
         out = torch.zeros_like(x)
@@ -523,6 +742,7 @@ class LagAwareFusion(nn.Module):
         return out
 
     def forward(self, h_eeg, h_imu):
+        """Fuse two feature maps of shape (batch, latent_dim, n_times) into one."""
         D = h_eeg.shape[1]
         q = self.q_proj(h_eeg)
         k = self.k_proj(h_imu)
@@ -543,6 +763,29 @@ class LagAwareFusion(nn.Module):
 
 
 class FullPrivilegedModel(nn.Module):
+    """Teacher-student model of Baseline 5.
+
+    Like `DistillationSimpleModel`, but the EEG features first get a per-subject scale
+    and shift (`SubjectFiLM`), and the teacher fuses EEG and IMU with `LagAwareFusion`.
+
+    Parameters
+    ----------
+    n_bands, n_channels : int
+        Number of filter-bank bands and EEG channels in the input.
+    out_dim : int
+        Number of velocity outputs.
+    n_subjects : int
+        Number of subjects for `SubjectFiLM`.
+    target_len : int
+        Number of output time steps.
+    latent_dim : int
+        Number of feature channels.
+    lag_radius : int
+        Largest IMU shift in `LagAwareFusion`, in time steps.
+    dropout : float
+        Dropout rate.
+    """
+
     def __init__(
         self,
         n_bands: int,
@@ -565,11 +808,21 @@ class FullPrivilegedModel(nn.Module):
         self.student_head = SeqHead(latent_dim, out_dim, dropout)
 
     def encode_eeg_student(self, eeg, subject_id):
+        """Encode the EEG and apply the subject's scale and shift."""
         h = self.eeg_encoder(eeg)
         h = self.subject_film(h, subject_id)
         return h
 
     def forward_teacher_student(self, eeg, imu, subject_id):
+        """Predict with both heads.
+
+        Returns
+        -------
+        y_teacher, y_student : Tensor, shape (batch, target_len, out_dim)
+            Predictions of the teacher and the student.
+        h_eeg, h_teacher : Tensor, shape (batch, latent_dim, target_len)
+            The student's EEG features and the teacher's fused features.
+        """
         h_eeg = self.encode_eeg_student(eeg, subject_id)
         h_imu = self.imu_encoder(imu)
         h_teacher = self.fusion(h_eeg, h_imu)
@@ -578,6 +831,11 @@ class FullPrivilegedModel(nn.Module):
         return y_teacher, y_student, h_eeg, h_teacher
 
     def forward_student(self, eeg, subject_id, return_latent: bool = False):
+        """Predict from the EEG alone with the student head.
+
+        If `return_latent` is True, the EEG features, of shape
+        (batch, latent_dim, target_len), are returned too.
+        """
         h_eeg = self.encode_eeg_student(eeg, subject_id)
         y_student = self.student_head(h_eeg)
         if return_latent:
@@ -586,6 +844,7 @@ class FullPrivilegedModel(nn.Module):
 
 
 def set_full_student_finetune_mode(model: FullPrivilegedModel):
+    """Freeze everything except the EEG encoder, the SubjectFiLM layer and the student head."""
     for p in model.parameters():
         p.requires_grad = False
     for p in model.eeg_encoder.parameters():
@@ -597,6 +856,7 @@ def set_full_student_finetune_mode(model: FullPrivilegedModel):
 
 
 def set_distill_student_finetune_mode(model: DistillationSimpleModel):
+    """Freeze everything except the EEG encoder and the student head."""
     for p in model.parameters():
         p.requires_grad = False
     for p in model.eeg_encoder.parameters():

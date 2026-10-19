@@ -24,7 +24,14 @@ src = ["mtp", "tests"]
 include = ["pyproject.toml", "mtp/**/*.py", "tests/**/*.py"]
 
 [tool.ruff.lint]
-extend-select = ["I"]  # Add import sorting
+extend-select = ["I", "D"]  # import sorting and docstring checks
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+# Test names already say what each test checks.
+"tests/test_*.py" = ["D103"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["mtp", "harness"]

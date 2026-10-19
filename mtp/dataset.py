@@ -1,4 +1,10 @@
-"""Load step 3 outputs for one subject and turn them into model-ready splits and loaders."""
+"""Load one subject's step 3 outputs and turn them into model inputs, splits and loaders.
+
+Step 3 writes three files per subject and condition (ME or MI): EEG epochs, velocity
+trajectories and target labels. In ``data/processed`` they sit in the subfolders listed
+in `DATA_FILES`; on the lab PC (``D:/MTP_task/model``) all of them sit in one folder.
+Both layouts work.
+"""
 
 import logging
 from pathlib import Path
@@ -13,10 +19,6 @@ from mtp.features import make_eeg_input, normalize_imu_train_only
 
 log = logging.getLogger(__name__)
 
-# ---- Locating files ---------------------------------------------------------
-
-# Step 3 writes three files per subject and condition (ME/MI). In data/processed they
-# sit in these subfolders; on the lab PC (D:\MTP_task\model) they all sit in one folder.
 DATA_FILES = {
     "eeg": ("EEG_data", "EEG_data_{subject}_{condition}.npy"),
     "trajectory": ("Kinematics_data/trajectory", "trajectory_{subject}_{condition}.npy"),
@@ -25,6 +27,28 @@ DATA_FILES = {
 
 
 def find_data_file(data_dir, kind: str, subject: str, condition: str) -> Path:
+    """Find one of the step 3 output files.
+
+    Parameters
+    ----------
+    data_dir : str or Path
+        Folder with the step 3 outputs, in either layout.
+    kind : {"eeg", "trajectory", "labels"}
+        Which file to find.
+    subject : str
+        Subject ID, such as "s026".
+    condition : {"ME", "MI"}
+        Motor execution or motor imagery.
+
+    Returns
+    -------
+    Path
+
+    Raises
+    ------
+    FileNotFoundError
+        If the file is in neither place. The message lists both paths that were tried.
+    """
     subdir, pattern = DATA_FILES[kind]
     name = pattern.format(subject=subject, condition=condition)
     candidates = [Path(data_dir) / subdir / name, Path(data_dir) / name]
@@ -38,7 +62,23 @@ def find_data_file(data_dir, kind: str, subject: str, condition: str) -> Path:
 
 
 def list_subjects(data_dir) -> list[str]:
-    """Subjects with ME EEG data in data_dir, e.g. ['s008', 's009', ...]."""
+    """Return the IDs of all subjects that have an ME EEG file in `data_dir`.
+
+    Parameters
+    ----------
+    data_dir : str or Path
+        Folder with the step 3 outputs, in either layout.
+
+    Returns
+    -------
+    list of str
+        Sorted subject IDs, such as ["s008", "s009"].
+
+    Raises
+    ------
+    FileNotFoundError
+        If no subject is found.
+    """
     subdir, _ = DATA_FILES["eeg"]
     prefix, suffix = "EEG_data_", "_ME.npy"
     subjects = set()
@@ -50,19 +90,32 @@ def list_subjects(data_dir) -> list[str]:
     return sorted(subjects)
 
 
-# ---- Loading and target construction ----------------------------------------
-
 TRAJECTORY_KEYS = ["shoulder", "elbow", "wirst", "IMU"]
 
 
 def load_eeg_and_trajectory(eeg_path, traj_path, name: str):
-    """
-    Load EEG (N, C, T_full) and the trajectory dict written by step 3:
-        traj["shoulder"] -> ndarray (N, 150, 3)
-        traj["elbow"]    -> ndarray (N, 150, 3)
-        traj["wirst"]    -> ndarray (N, 150, 3)
-        traj["IMU"]      -> ndarray (N, 150, 6)
-    Trajectories are already aligned with the EEG epoch order.
+    """Load the EEG epochs and velocity trajectories of one condition.
+
+    Parameters
+    ----------
+    eeg_path, traj_path : str or Path
+        The EEG_data and trajectory files written by step 3.
+    name : str
+        Condition name for log messages and errors, such as "ME".
+
+    Returns
+    -------
+    eeg : ndarray, shape (n_trials, n_channels, n_samples)
+        EEG in volts, covering -2 to 7 s around movement onset.
+    traj : dict of ndarray
+        "shoulder", "elbow" and "wirst" velocities in m/s, each of shape
+        (n_trials, 150, 3), and "IMU" rotation velocities in rad/s, of shape
+        (n_trials, 150, 6). The trials are in the same order as in `eeg`.
+
+    Raises
+    ------
+    ValueError
+        If the trajectory file does not have this format.
     """
     eeg = np.load(eeg_path, allow_pickle=True)
     traj = np.load(traj_path, allow_pickle=True).item()
@@ -82,6 +135,25 @@ def load_eeg_and_trajectory(eeg_path, traj_path, name: str):
 
 
 def load_labels_clean(labels_path, name: str) -> np.ndarray:
+    """Load the target labels of one condition.
+
+    Parameters
+    ----------
+    labels_path : str or Path
+        The labels_clean file written by step 3.
+    name : str
+        Condition name for log messages and errors, such as "ME".
+
+    Returns
+    -------
+    ndarray of int32, shape (n_trials,)
+        One label per trial: 101 to 104 for balls 1 to 4.
+
+    Raises
+    ------
+    ValueError
+        If the file contains any other label.
+    """
     labels = np.load(labels_path, allow_pickle=True)
     labels = np.asarray(labels).astype(np.int32).ravel()
 
@@ -155,9 +227,9 @@ def _make_dim_names(target_stream: str):
 
 
 def _target_ids_from_labels(labels_clean: np.ndarray, n_epochs: int, name: str = "") -> np.ndarray:
-    """
-    Convert labels_clean to target_ids 0..3.
-    labels_clean is used only for stratified splitting and class/prototype labels.
+    """Convert labels 101-104 to target indices 0-3.
+
+    Raises ValueError if there are not exactly `n_epochs` labels or a label is unknown.
     """
     labels_clean = np.asarray(labels_clean).astype(np.int32).ravel()
 
@@ -181,12 +253,10 @@ def _target_ids_from_labels(labels_clean: np.ndarray, n_epochs: int, name: str =
 
 
 def _get_target_array(traj: dict, target_stream: str) -> np.ndarray:
-    """
-    Output shape:
-        single stream: (N, 150, 3)
-        imu:           (N, 150, 6)
-        all_xyz:       (N, 150, 9)
-        all_kin:       (N, 150, 15)
+    """Select the velocities for `target_stream` from the trajectory dict.
+
+    The result has shape (n_trials, 150, n_outputs), with 3 outputs for one joint, 6 for
+    "imu", 9 for "all_xyz" and 15 for "all_kin".
     """
     if target_stream in ["wrist", "wirst", "elbow", "shoulder"]:
         key = TRAJ_KEY_ALIAS[target_stream]
@@ -211,7 +281,26 @@ def _get_target_array(traj: dict, target_stream: str) -> np.ndarray:
 
 
 def build_target_sequence(traj: dict, target_stream: str, labels_clean: np.ndarray):
-    """Return the target trajectories y, target_ids 0..3 (from labels_clean) and dim names."""
+    """Build the velocity targets and the target index of each trial.
+
+    Parameters
+    ----------
+    traj : dict of ndarray
+        Trajectories from `load_eeg_and_trajectory`.
+    target_stream : str
+        Which velocities to predict; see `Config.target_stream`.
+    labels_clean : ndarray, shape (n_trials,)
+        Labels 101 to 104.
+
+    Returns
+    -------
+    y : ndarray of float32, shape (n_trials, 150, n_outputs)
+        Velocities to predict.
+    target_ids : ndarray of int64, shape (n_trials,)
+        Target index (0 to 3) of each trial.
+    dim_names : list of str
+        Name of each output, such as "wrist_Vx".
+    """
     labels_clean = np.asarray(labels_clean).astype(np.int32).ravel()
     dim_names = _make_dim_names(target_stream)
 
@@ -225,19 +314,28 @@ def build_target_sequence(traj: dict, target_stream: str, labels_clean: np.ndarr
 
 
 def build_imu_sequence(traj: dict, labels_clean: np.ndarray):
-    """Return the ME IMU input sequence (N, 150, 6)."""
+    """Return the IMU rotation velocities, which the ME models take as input.
+
+    Parameters
+    ----------
+    traj : dict of ndarray
+        Trajectories from `load_eeg_and_trajectory`.
+    labels_clean : ndarray, shape (n_trials,)
+        Labels 101 to 104, used to check the number of trials.
+
+    Returns
+    -------
+    ndarray of float32, shape (n_trials, 150, 6)
+    """
     if "IMU" not in traj:
         raise KeyError("Trajectory file does not contain key 'IMU'.")
 
     imu = traj["IMU"].astype(np.float32)
-    # Validates that labels_clean matches the number of IMU epochs.
+    # Called only to check that labels_clean and the IMU data have the same trial count.
     _target_ids_from_labels(
         labels_clean=labels_clean, n_epochs=imu.shape[0], name="IMU trajectory"
     )
     return imu
-
-
-# ---- Split and target scaling -----------------------------------------------
 
 
 def stratified_split_indices(
@@ -246,9 +344,25 @@ def stratified_split_indices(
     test_fraction: float = 0.15,
     val_fraction: float = 0.1765,
 ):
-    """
-    Split trial indices into train / val / test, stratified by target.
-    test_fraction is a share of all trials; val_fraction a share of the rest.
+    """Split trial indices into training, validation and test sets.
+
+    Each set has the same mix of targets as the whole.
+
+    Parameters
+    ----------
+    target_ids : ndarray, shape (n_trials,)
+        Target index of each trial.
+    seed : int
+        Random seed for the split.
+    test_fraction : float
+        Share of all trials that go to the test set.
+    val_fraction : float
+        Share of the remaining trials that go to the validation set.
+
+    Returns
+    -------
+    train_idx, val_idx, test_idx : ndarray of int
+        Trial indices of each set.
     """
     indices = np.arange(len(target_ids))
     trainval_idx, test_idx = train_test_split(
@@ -267,6 +381,20 @@ def stratified_split_indices(
 
 
 def fit_target_scaler(*y_train_arrays, eps: float = 1e-8):
+    """Compute the mean and standard deviation of each output over the training targets.
+
+    Parameters
+    ----------
+    *y_train_arrays : ndarray, shape (n_trials, n_times, n_outputs)
+        Training targets. ME and MI are passed together, so both share one scale.
+    eps : float
+        Added to the standard deviation to avoid dividing by zero.
+
+    Returns
+    -------
+    dict
+        "mean" and "std", each of shape (1, 1, n_outputs).
+    """
     y_cat = np.concatenate(y_train_arrays, axis=0)
     mean = y_cat.mean(axis=(0, 1), keepdims=True)
     std = y_cat.std(axis=(0, 1), keepdims=True)
@@ -274,25 +402,44 @@ def fit_target_scaler(*y_train_arrays, eps: float = 1e-8):
 
 
 def normalize_targets(y: np.ndarray, scaler: dict):
+    """Scale targets with a scaler from `fit_target_scaler`."""
     return ((y - scaler["mean"]) / scaler["std"]).astype(np.float32)
 
 
 def denormalize_targets(y_norm: np.ndarray, scaler: dict):
+    """Undo `normalize_targets`, giving velocities in their original units."""
     return y_norm * scaler["std"] + scaler["mean"]
 
-
-# ---- Preparing one condition ------------------------------------------------
 
 SPLITS = ("train", "val", "test")
 
 
 def prepare_dataset(cfg, condition: str, with_imu: bool):
-    """
-    Load, split and preprocess one condition ("ME" or "MI") for cfg.subject.
+    """Load, split and preprocess one condition for ``cfg.subject``.
 
-    Returns a dict with X_<split> (N, bands, channels, samples), y_<split>, id_<split>
-    (target 0..3), sub_<split> (subject index), imu_<split> if with_imu, plus dim_names,
-    n_bands, n_channels and out_dim.
+    Parameters
+    ----------
+    cfg : Config
+        Run settings. The subject, data folder, target stream, split settings and EEG
+        preprocessing settings are used.
+    condition : {"ME", "MI"}
+        Motor execution or motor imagery.
+    with_imu : bool
+        Also prepare the IMU signals as model input. Only ME has them.
+
+    Returns
+    -------
+    dict
+        For each split ("train", "val" and "test"):
+
+        - ``X_<split>``: EEG model input, shape (n_trials, n_bands, n_channels, 2560)
+        - ``y_<split>``: velocity targets, shape (n_trials, 150, n_outputs)
+        - ``id_<split>``: target index (0 to 3) of each trial
+        - ``sub_<split>``: subject index of each trial, always 0
+        - ``imu_<split>``: normalized IMU signals, shape (n_trials, 150, 6), if `with_imu`
+
+        It also holds ``dim_names``, ``n_bands``, ``n_channels``, ``out_dim`` and, if
+        `with_imu`, the ``imu_scaler`` fitted on the training trials.
     """
     paths = {
         kind: find_data_file(cfg.data_dir, kind, cfg.subject, condition) for kind in DATA_FILES
@@ -372,15 +519,25 @@ def prepare_dataset(cfg, condition: str, with_imu: bool):
     return data
 
 
-# ---- PyTorch loaders --------------------------------------------------------
-
-
 def make_loader(data: dict, split: str, batch_size: int, with_imu: bool = False):
-    """
-    DataLoader over one split of a prepared dataset; shuffled for "train" only.
+    """Make a DataLoader over one split of a prepared dataset.
 
-    Batches are (eeg, y, target_id, subject_id), or (eeg, imu, y, target_id, subject_id)
-    with with_imu=True. Targets come from the normalized y_<split>_n arrays.
+    Parameters
+    ----------
+    data : dict
+        Output of `prepare_dataset`, with the normalized targets added as ``y_<split>_n``.
+    split : {"train", "val", "test"}
+        Which split to load. Only "train" is shuffled.
+    batch_size : int
+        Trials per batch.
+    with_imu : bool
+        Include the IMU signals in each batch.
+
+    Returns
+    -------
+    DataLoader
+        Batches of (eeg, y, target_id, subject_id), or of (eeg, imu, y, target_id,
+        subject_id) when `with_imu` is True.
     """
     tensors = [torch.from_numpy(data[f"X_{split}"]).float()]
     if with_imu:

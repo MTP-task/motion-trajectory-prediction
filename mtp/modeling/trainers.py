@@ -1,4 +1,8 @@
-"""The training loop shared by every deep baseline (objectives.py holds what differs)."""
+"""The training loop shared by every deep baseline.
+
+What differs between baselines is the objective (see `mtp.modeling.objectives`); the
+loop, optimizer, learning-rate schedule and early stopping are the same for all of them.
+"""
 
 import copy
 from dataclasses import dataclass
@@ -17,10 +21,33 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class TrainConfig:
+    """Optimizer and stopping settings for one training stage.
+
+    Attributes
+    ----------
+    lr : float
+        AdamW learning rate.
+    weight_decay : float
+        AdamW weight decay.
+    num_epochs : int
+        Maximum number of epochs.
+    patience : int
+        Stop after this many epochs without a lower validation loss.
+    device : str
+        Device to train on, such as "cpu" or "cuda".
+    grad_clip_norm : float
+        Gradients are scaled down when their total norm is larger than this.
+    lr_decay_factor : float
+        The learning rate is multiplied by this factor when the validation loss stops
+        improving.
+    lr_decay_patience : int
+        Number of epochs without improvement allowed before the learning rate decays.
+    """
+
     lr: float
     weight_decay: float
     num_epochs: int
-    patience: int  # epochs without validation improvement before stopping
+    patience: int
     device: str = "cpu"
     grad_clip_norm: float = 5.0
     lr_decay_factor: float = 0.5
@@ -29,24 +56,59 @@ class TrainConfig:
 
 @dataclass
 class EpochResult:
-    # "loss" plus any extra loss terms from the objective, averaged per sample
+    """Losses and metrics from one pass over a loader.
+
+    Attributes
+    ----------
+    losses : dict of float
+        Average per trial of the total loss ("loss") and of any extra loss terms the
+        objective reports, such as "proto_loss".
+    metrics : dict of dict
+        Output of `compute_metrics_np` for each prediction, keyed by its name: "y", or
+        "teacher" and "student".
+    """
+
     losses: dict
-    # prediction name ("y", "teacher", "student") -> metrics from compute_metrics_np
     metrics: dict
 
     def flat(self, pred: str = "y") -> dict:
-        """Metrics of one prediction merged with the losses, as used for result rows."""
+        """Return the metrics of one prediction and the losses as a single dict."""
         return {**self.metrics[pred], **self.losses}
 
 
 def trainable_parameters(model):
+    """Return the parameters of `model` that are not frozen."""
     return [p for p in model.parameters() if p.requires_grad]
 
 
 def run_epoch(
     model, loader, objective, scaler, dim_names, optimizer=None, device="cpu", grad_clip_norm=5.0
 ) -> EpochResult:
-    """One pass over `loader`: trains when an optimizer is given, otherwise evaluates."""
+    """Make one pass over `loader`, training if an optimizer is given.
+
+    Parameters
+    ----------
+    model : nn.Module
+        Model to train or evaluate.
+    loader : DataLoader
+        Batches from `mtp.dataset.make_loader`.
+    objective : callable
+        One of the objectives in `mtp.modeling.objectives`.
+    scaler : dict
+        Target scaler, used to score predictions in their original units.
+    dim_names : list of str
+        Name of each output dimension.
+    optimizer : torch.optim.Optimizer, optional
+        If given, the model is trained; otherwise it is only evaluated.
+    device : str
+        Device to run on.
+    grad_clip_norm : float
+        Limit for the total gradient norm when training.
+
+    Returns
+    -------
+    EpochResult
+    """
     is_train = optimizer is not None
     model.train() if is_train else model.eval()
 
@@ -89,12 +151,34 @@ def run_epoch(
 def fit(
     stage_name, model, train_loader, val_loader, objective, scaler, dim_names, cfg: TrainConfig
 ):
-    """
-    Train the model's trainable parameters with AdamW, decay the learning rate when the
-    validation loss plateaus, stop early after `cfg.patience` epochs without improvement,
-    and load the weights with the best validation loss back into `model`.
+    """Train a model and keep the weights with the lowest validation loss.
 
-    Returns one row per epoch for the "stages" sheet.
+    The trainable parameters are optimized with AdamW. The learning rate decays when the
+    validation loss stops improving, and training stops early after ``cfg.patience``
+    epochs without improvement. At the end, the best weights are loaded back into
+    `model`.
+
+    Parameters
+    ----------
+    stage_name : str
+        Name of the stage in the logs and the "stages" sheet.
+    model : nn.Module
+        Model to train, in place.
+    train_loader, val_loader : DataLoader
+        Training and validation batches.
+    objective : callable
+        One of the objectives in `mtp.modeling.objectives`.
+    scaler : dict
+        Target scaler, used to score predictions in their original units.
+    dim_names : list of str
+        Name of each output dimension.
+    cfg : TrainConfig
+        Optimizer and stopping settings.
+
+    Returns
+    -------
+    list of dict
+        One row per epoch for the "stages" sheet.
     """
     model.to(cfg.device)
     optimizer = torch.optim.AdamW(
@@ -166,7 +250,31 @@ def fit(
 
 @torch.no_grad()
 def compute_me_prototypes(model, loader, device, num_targets: int = 4):
-    """Mean normalized student EEG latent per target on ME data (Baseline 5)."""
+    """Compute one prototype per target from ME data (Baseline 5).
+
+    A prototype is the student's EEG features averaged over time and over all ME
+    training trials of that target, scaled to unit length.
+
+    Parameters
+    ----------
+    model : FullPrivilegedModel
+        Model after ME pretraining.
+    loader : DataLoader
+        ME training batches with IMU.
+    device : str
+        Device to run on.
+    num_targets : int
+        Number of targets.
+
+    Returns
+    -------
+    Tensor, shape (num_targets, latent_dim)
+
+    Raises
+    ------
+    ValueError
+        If a target has no trials.
+    """
     model.eval()
     z_list, id_list = [], []
 

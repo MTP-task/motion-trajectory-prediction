@@ -1,24 +1,21 @@
-"""
-Train and evaluate baselines 0-7 (see mtp/modeling/baselines.py) and save the ME/MI
-results of each subject to an Excel file.
+"""Train and evaluate the baselines, and save each subject's results to Excel.
 
-Examples (from the repo root):
+Examples, run from the repository root:
+
     python -m mtp.modeling.train
     python -m mtp.modeling.train --subject s008 s009 --baselines 3 6 7
     python -m mtp.modeling.train --subject all --data-dir D:/MTP_task/model --skip-existing
 
-Input: for each subject and condition (ME, MI), the step 3 outputs
-    EEG_data_<subject>_<cond>.npy       EEG epochs covering -2..7 s
-    trajectory_<subject>_<cond>.npy     dict of (epoch, 150, 3|6) arrays aligned with EEG
-    labels_clean_<subject>_<cond>.npy   target labels 101-104
-in --data-dir, either all in one folder or in the data/processed subfolders.
-Filter-bank filtering is applied to the full -2..7 s epoch first, then the model input
-is cropped to 0..5 s.
+The input is the output of step 3 for each subject and condition (ME and MI): EEG
+epochs from -2 to 7 s (EEG_data_<subject>_<condition>.npy), velocities
+(trajectory_<subject>_<condition>.npy) and target labels 101-104
+(labels_clean_<subject>_<condition>.npy). The files can sit in one folder or in the
+data/processed subfolders.
 
-Output: <results-dir>/baseline_results_<subject>_multihead.xlsx with sheets
-summary, axis_metrics, stages and config, and a .log file with the same name.
-With several subjects, a failing subject is logged and the run continues; the exit
-code is 1 if any subject failed.
+Each subject's results go to baseline_results_<subject>_multihead.xlsx in the results
+folder, with the sheets summary, axis_metrics, stages and config. The log of the run
+goes to a .log file with the same name. When several subjects run, a subject that fails
+is logged and the others continue; the exit code is 1 if any subject failed.
 """
 
 import argparse
@@ -39,7 +36,21 @@ LOG_DATEFMT = "%H:%M:%S"
 
 
 def run_experiment(cfg: Config):
-    """Run cfg.baselines for cfg.subject; save the Excel results and a log file next to them."""
+    """Run the selected baselines for one subject and save the results.
+
+    The Excel results and a log of the run are written side by side in
+    ``cfg.results_dir``.
+
+    Parameters
+    ----------
+    cfg : Config
+        Run settings, including the subject and the baselines to run.
+
+    Raises
+    ------
+    Exception
+        Whatever made the run fail, after it has been logged.
+    """
     log_path = cfg.result_xlsx_path.with_suffix(".log")
     log_path.parent.mkdir(parents=True, exist_ok=True)
     file_handler = logging.FileHandler(log_path, mode="w", encoding="utf-8")
@@ -60,8 +71,7 @@ def run_experiment(cfg: Config):
         exp = Experiment(cfg, device)
 
         for baseline_id in sorted(set(cfg.baselines)):
-            # Every baseline starts from the same seed, so its results do not depend on
-            # which other baselines run.
+            # Reseeding here makes each baseline's results independent of the others.
             set_seed(cfg.seed)
             BASELINES[baseline_id](exp)
 
@@ -78,6 +88,13 @@ def run_experiment(cfg: Config):
 
 
 def main(argv=None):
+    """Run the command-line interface.
+
+    Parameters
+    ----------
+    argv : list of str, optional
+        Command-line arguments. By default they are read from ``sys.argv``.
+    """
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -113,7 +130,8 @@ def main(argv=None):
             continue
         try:
             run_experiment(cfg)
-        except Exception:  # noqa: BLE001 - logged with its traceback; continue with the next subject
+        except Exception:  # noqa: BLE001
+            # run_experiment has logged the error; carry on with the other subjects.
             failed.append(subject)
 
     if failed:

@@ -1,12 +1,14 @@
-"""Per-batch training objectives.
+"""What each training stage computes for one batch.
 
-An objective takes a model and one batch, and returns the loss to optimise plus the
-predictions to score. The training loop in trainers.py is the same for every baseline;
-only the objective changes.
+An objective takes a model and a batch and returns the loss to optimize together with
+the predictions to score. The training loop in `mtp.modeling.trainers` is the same for
+every baseline; only the objective changes.
 
-Batches come from mtp.dataset.make_loader:
-    EEG-only loaders: (eeg, y, target_id, subject_id)
-    EEG+IMU loaders:  (eeg, imu, y, target_id, subject_id)
+Batches come from `mtp.dataset.make_loader`. EEG-only loaders give (eeg, y, target_id,
+subject_id) and EEG+IMU loaders give (eeg, imu, y, target_id, subject_id).
+
+The forward functions `eeg_only`, `fusion_real_imu`, `fusion_zero_imu` and
+`distill_student` each take a model and a batch and return the prediction and the target.
 """
 
 from dataclasses import dataclass, field
@@ -20,40 +22,50 @@ from mtp.modeling.metrics import proto_alignment_loss
 
 @dataclass
 class StepOutput:
+    """What an objective returns for one batch.
+
+    Attributes
+    ----------
+    loss : Tensor
+        Loss to optimize.
+    y : Tensor
+        True velocities.
+    preds : dict of Tensor
+        Predicted velocities to score, keyed by name: "y", or "teacher" and "student"
+        when one pass gives two predictions.
+    parts : dict of Tensor
+        Extra loss terms to report next to the total, such as "proto_loss".
+    """
+
     loss: torch.Tensor
     y: torch.Tensor
-    # Predicted trajectories to score, e.g. {"y": ...} or {"teacher": ..., "student": ...}
     preds: dict
-    # Extra loss terms to average over the epoch, e.g. {"proto_loss": ...}
     parts: dict = field(default_factory=dict)
 
 
-# ---- Forward passes: (model, batch) -> (prediction, target) ------------------
-
-
 def eeg_only(model, batch):
+    """Predict from the EEG alone."""
     eeg, y, _target_id, _subject_id = batch
     return model(eeg), y
 
 
 def fusion_real_imu(model, batch):
+    """Predict from the EEG and the recorded IMU (ME trials)."""
     eeg, imu, y, _target_id, _subject_id = batch
     return model(eeg, imu), y
 
 
 def fusion_zero_imu(model, batch):
-    """MI has no IMU recording, so fusion models get an all-zero IMU input."""
+    """Predict from the EEG with an all-zero IMU input, since MI trials have no IMU."""
     eeg, y, _target_id, _subject_id = batch
     imu = torch.zeros((eeg.shape[0], TARGET_LEN, IMU_DIM), dtype=eeg.dtype, device=eeg.device)
     return model(eeg, imu), y
 
 
 def distill_student(model, batch):
+    """Predict with the EEG-only student of a teacher-student model."""
     eeg, y, _target_id, _subject_id = batch
     return model.forward_student(eeg), y
-
-
-# ---- Objectives -------------------------------------------------------------
 
 
 def _single_prediction_row(train, val):
@@ -66,28 +78,52 @@ def _single_prediction_row(train, val):
 
 
 class Supervised:
-    """Regress one prediction onto the target with the given regression loss."""
+    """Fit one prediction to the target with a regression loss.
+
+    Parameters
+    ----------
+    forward : callable
+        One of the forward functions in this module, such as `eeg_only`.
+    criterion : nn.Module
+        Regression loss, normally `SequenceRegressionLoss`.
+    """
 
     def __init__(self, forward, criterion):
         self.forward = forward
         self.criterion = criterion
 
     def __call__(self, model, batch):
+        """Return the loss and prediction for one batch as a `StepOutput`."""
         y_pred, y = self.forward(model, batch)
         return StepOutput(loss=self.criterion(y_pred, y), y=y, preds={"y": y_pred})
 
     def stage_row(self, train, val):
-        """Columns for the per-epoch "stages" sheet."""
+        """Return the columns this objective adds to the per-epoch "stages" sheet."""
         return _single_prediction_row(train, val)
 
 
 class TeacherStudent:
-    """
-    ME pretraining with an EEG+IMU teacher and an EEG-only student (Baselines 4 and 5):
-        loss = w_teacher * reg(teacher) + w_student * reg(student)
-               + w_kd * SmoothL1(student, teacher.detach())
-    `criterion` is the regression loss reg. Set use_subject_id for models whose
-    forward_teacher_student takes subject IDs.
+    """Train a teacher and a student together on ME data (Baselines 4 and 5).
+
+    The teacher sees EEG and IMU; the student sees only EEG. The loss is::
+
+        teacher_weight * reg(teacher) + student_weight * reg(student)
+            + kd_weight * SmoothL1(student, teacher)
+
+    where reg is `criterion`. The teacher's output is detached in the last term, so that
+    term only moves the student toward the teacher.
+
+    Parameters
+    ----------
+    criterion : nn.Module
+        Regression loss.
+    teacher_weight, student_weight, kd_weight : float
+        Weights of the three terms.
+    kd_beta : float
+        SmoothL1 threshold of the last term.
+    use_subject_id : bool
+        Pass subject IDs to ``model.forward_teacher_student``, as Baseline 5's model
+        requires.
     """
 
     def __init__(
@@ -107,6 +143,7 @@ class TeacherStudent:
         self.kd_criterion = nn.SmoothL1Loss(beta=kd_beta)
 
     def __call__(self, model, batch):
+        """Return the loss and both predictions for one batch as a `StepOutput`."""
         eeg, imu, y, _target_id, subject_id = batch
         if self.use_subject_id:
             y_teacher, y_student, _h_eeg, _h_teacher = model.forward_teacher_student(
@@ -126,6 +163,7 @@ class TeacherStudent:
         return StepOutput(loss=loss, y=y, preds={"teacher": y_teacher, "student": y_student})
 
     def stage_row(self, train, val):
+        """Return the columns this objective adds to the per-epoch "stages" sheet."""
         return {
             "teacher_val_r_mean": val.metrics["teacher"]["r_mean"],
             "student_val_r_mean": val.metrics["student"]["r_mean"],
@@ -135,11 +173,23 @@ class TeacherStudent:
 
 
 class PrototypeAlignedStudent:
-    """
-    MI fine-tuning of the Baseline 5 student, pulling its EEG latent towards the ME
-    prototype of each trial's target:
-        loss = reg(student) + proto_weight * (1 - cos(latent, prototype[target]))
-    With no prototypes (or weight 0) this is plain regression, as used for evaluation.
+    """Fine-tune Baseline 5's student on MI data, pulled toward the ME prototypes.
+
+    The loss is::
+
+        reg(student) + proto_weight * proto_alignment_loss(features, prototypes)
+
+    Without prototypes, or with `proto_weight` 0, only the regression loss remains. That
+    is how the model is evaluated.
+
+    Parameters
+    ----------
+    criterion : nn.Module
+        Regression loss.
+    prototypes : Tensor, shape (n_targets, latent_dim), optional
+        Prototypes from `compute_me_prototypes`.
+    proto_weight : float
+        Weight of the prototype term.
     """
 
     def __init__(self, criterion, prototypes=None, proto_weight=0.0):
@@ -148,6 +198,7 @@ class PrototypeAlignedStudent:
         self.criterion = criterion
 
     def __call__(self, model, batch):
+        """Return the loss, its two terms and the prediction for one batch."""
         eeg, y, target_id, subject_id = batch
         y_pred, h_eeg = model.forward_student(eeg, subject_id, return_latent=True)
         reg_loss = self.criterion(y_pred, y)
@@ -163,4 +214,5 @@ class PrototypeAlignedStudent:
         )
 
     def stage_row(self, train, val):
+        """Return the columns this objective adds to the per-epoch "stages" sheet."""
         return {**_single_prediction_row(train, val), "val_proto_loss": val.losses["proto_loss"]}

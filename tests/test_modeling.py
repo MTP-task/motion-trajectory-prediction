@@ -60,7 +60,8 @@ def test_regression_loss_is_zero_for_a_perfect_prediction():
 
 
 def test_lag_features_average_the_right_windows():
-    # EEG whose value is its own sample index, so a window's mean is its centre index - 0.5.
+    # Each EEG sample's value is its own index, so the mean over a window is the index of
+    # the window's centre minus 0.5.
     n_samples = 2560
     X = np.arange(n_samples, dtype=np.float32).reshape(1, 1, 1, n_samples)
     features = make_time_lagged_linear_features(X, lags_sec=[-0.1, 0.0], lag_window_sec=0.05)
@@ -76,7 +77,8 @@ def test_lag_features_average_the_right_windows():
 def test_lag_windows_before_the_crop_are_zero():
     X = np.ones((1, 1, 1, 2560), dtype=np.float32)
     features = make_time_lagged_linear_features(X, lags_sec=[-0.3], lag_window_sec=0.05)
-    assert features[0, 0, 0] == 0.0  # sample 0 minus 300 ms lies before 0 s
+    # 300 ms before the first velocity sample is before the start of the EEG crop.
+    assert features[0, 0, 0] == 0.0
     assert features[0, 30, 0] == 1.0
 
 

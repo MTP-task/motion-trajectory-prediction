@@ -1,4 +1,4 @@
-"""Baseline 0: time-lagged linear regression (MLR / Ridge) from EEG to velocity."""
+"""Baseline 0: time-lagged linear regression from EEG to velocity."""
 
 import logging
 
@@ -17,31 +17,29 @@ def make_time_lagged_linear_features(
     lags_sec: list[float],
     lag_window_sec: float,
 ):
-    """
-    Create time-lagged linear EEG features for MLR.
+    """Build time-lagged EEG features for Baseline 0.
 
-    Input:
-        X: (N, B, C, T_eeg)
-           Already filter-bank processed and cropped to 0..5 s.
+    For each of the 150 velocity samples, the EEG is averaged in a short window around
+    each lag, for example 300, 200 and 100 ms before the sample and at the sample
+    itself, separately for every band and channel. Only EEG close to each sample is
+    used, so the model cannot predict the whole trajectory from the whole epoch, which
+    could amount to recognizing a template. Neither the target label nor the time step
+    is a feature.
 
-    Output:
-        F: (N, TARGET_LEN, B*C*n_lags)
+    Parameters
+    ----------
+    X : ndarray, shape (n_trials, n_bands, n_channels, n_samples)
+        Filter-bank EEG cropped to 0-5 s, from `make_eeg_input`.
+    lags_sec : list of float
+        Lags in seconds. Negative values are before the velocity sample.
+    lag_window_sec : float
+        Length in seconds of the window averaged around each lag.
 
-    Meaning:
-        For every trajectory sample y(t), the feature vector contains EEG values
-        from several lagged time points:
-            EEG(t - 300 ms), EEG(t - 200 ms), EEG(t - 100 ms), EEG(t)
-
-        Each lag feature is the mean EEG value inside a short window
-        around the lag center. This avoids using the whole 0..5 s EEG epoch
-        to predict the whole trajectory, which was too strong and could behave
-        like template decoding.
-
-    Important:
-        This is closer to classical time-lagged MLR:
-            EEG(t + lag) -> velocity(t)
-
-        It does NOT include target labels or time-bin IDs as input features.
+    Returns
+    -------
+    ndarray of float32, shape (n_trials, 150, n_bands * n_channels * n_lags)
+        A window that falls completely outside the 0-5 s crop gives zeros, the average
+        of the z-scored EEG.
     """
     N, B, C, T_eeg = X.shape
     n_lags = len(lags_sec)
@@ -52,7 +50,7 @@ def make_time_lagged_linear_features(
     half_window = max(1, round((lag_window_sec * EEG_FS) / 2.0))
 
     for ti in range(TARGET_LEN):
-        # Use center of each 30-Hz trajectory sample.
+        # Time of the middle of velocity sample ti.
         t_sec = (ti + 0.5) / TRAJ_FS
 
         lag_features = []
@@ -62,8 +60,6 @@ def make_time_lagged_linear_features(
             start = center - half_window
             end = center + half_window
 
-            # If the lag window is fully outside the 0..5 s EEG crop,
-            # use zeros. Since EEG features were z-scored, zero means average activity.
             if end <= 0 or start >= T_eeg:
                 feat = np.zeros((N, B, C), dtype=np.float32)
             else:
@@ -83,25 +79,29 @@ def make_time_lagged_linear_features(
 
 
 def run_baseline0_linear(data, scaler, dim_names, cfg):
-    """
-    Baseline 0: time-lagged MLR / Ridge regression.
+    """Fit and test Baseline 0 on one condition.
 
-    Previous version:
-        whole EEG epoch -> whole trajectory
-        This could be too powerful and template-like.
+    Every pair of a trial and a velocity sample is one row: its features come from
+    `make_time_lagged_linear_features` and its target is the velocity at that sample.
+    The model is fitted on the training and validation trials together, because
+    nothing is tuned on the validation set, and scored on the test trials with the same
+    metrics as the deep models.
 
-    New version:
-        for each trajectory sample:
-            EEG(t + lags) -> velocity(t)
+    Parameters
+    ----------
+    data : dict
+        One condition from `prepare_dataset`, with normalized targets ``y_<split>_n``.
+    scaler : dict
+        Target scaler, used to score the predictions in their original units.
+    dim_names : list of str
+        Name of each output dimension.
+    cfg : Config
+        Run settings. The ``baseline0_*`` and ``linear_*`` settings are used.
 
-    Training:
-        rows = epochs * trajectory_time_samples
-        X    = time-lagged EEG features
-        y    = velocity at that time sample
-
-    Evaluation:
-        predictions are reshaped back to (epochs, 150, output_dim)
-        and evaluated using the same r/RMSE/MAE metrics as the deep models.
+    Returns
+    -------
+    dict of float
+        Test metrics from `compute_metrics_np`, with ``loss`` set to NaN.
     """
     log.info(
         "===== Baseline 0: Time-lagged MLR ===== (lags %s s, window %.1f ms)",
@@ -120,7 +120,6 @@ def run_baseline0_linear(data, scaler, dim_names, cfg):
     Nva, Tva, _ = Fva.shape
     Nte, Tte, _ = Fte.shape
 
-    # Use train + validation for final linear fit.
     X_train_final = np.concatenate(
         [
             Ftr.reshape(Ntr * Ttr, P),
