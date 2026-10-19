@@ -7,6 +7,10 @@ epoch covers -2 to 7 s around movement onset, and the models use the part from 0
 IMU gives ``IMU_DIM`` = 6 signals: rotation velocity around x, y and z at the elbow and
 at the wrist.
 
+`TRAJECTORY_STREAMS` lists the signals in the step 3 trajectory files, with their key in
+the file and the names of their outputs. `TARGET_STREAMS` lists the signals that make up
+each choice of `Config.target_stream`, in output order.
+
 `Config` holds the settings of one run. Every setting can also be given on the command
 line; see ``python -m mtp.modeling.train --help``.
 """
@@ -21,15 +25,15 @@ PROJ_ROOT = Path(__file__).resolve().parents[1]
 
 EEG_FS = 512.0
 TRAJ_FS = 30.0
-EPOCH_SEC = 5.0
-TARGET_LEN = int(TRAJ_FS * EPOCH_SEC)
 IMU_DIM = 6
 
 EEG_EPOCH_TMIN = -2.0
+EEG_EPOCH_TMAX = 7.0
 EEG_CROP_TMIN = 0.0
 EEG_CROP_TMAX = 5.0
 MODEL_EEG_SEC = EEG_CROP_TMAX - EEG_CROP_TMIN
 MODEL_EEG_SAMPLES = round(EEG_FS * MODEL_EEG_SEC)
+TARGET_LEN = round(TRAJ_FS * MODEL_EEG_SEC)
 
 BANDS = {
     "slow": (0.5, 1.0),
@@ -41,14 +45,31 @@ BANDS = {
     "low_gamma": (30.0, 45.0),
 }
 
-# The step 3 trajectory files spell the wrist key "wirst", so both spellings map to it.
-TRAJ_KEY_ALIAS = {
-    "wrist": "wirst",
-    "wirst": "wirst",
-    "elbow": "elbow",
-    "shoulder": "shoulder",
-    "imu": "IMU",
-    "IMU": "IMU",
+TRAJECTORY_STREAMS = {
+    "shoulder": ("shoulder", ["shoulder_Vx", "shoulder_Vy", "shoulder_Vz"]),
+    "elbow": ("elbow", ["elbow_Vx", "elbow_Vy", "elbow_Vz"]),
+    # The step 3 files spell the wrist key "wirst".
+    "wrist": ("wirst", ["wrist_Vx", "wrist_Vy", "wrist_Vz"]),
+    "imu": (
+        "IMU",
+        [
+            "IMU_elbow_rotVx",
+            "IMU_elbow_rotVy",
+            "IMU_elbow_rotVz",
+            "IMU_wrist_rotVx",
+            "IMU_wrist_rotVy",
+            "IMU_wrist_rotVz",
+        ],
+    ),
+}
+
+TARGET_STREAMS = {
+    "shoulder": ["shoulder"],
+    "elbow": ["elbow"],
+    "wrist": ["wrist"],
+    "imu": ["imu"],
+    "all_xyz": ["shoulder", "elbow", "wrist"],
+    "all_kin": ["shoulder", "elbow", "wrist", "imu"],
 }
 
 TARGET_ORDER = ["Number 1", "Number 2", "Number 3", "Number 4"]
@@ -61,7 +82,6 @@ LABEL_TO_KEY = {
 }
 KEY_TO_TARGET_ID = {key: i for i, key in enumerate(TARGET_ORDER)}
 
-TARGET_STREAMS = ("wrist", "elbow", "shoulder", "imu", "all_xyz", "all_kin")
 BASELINE_IDS = tuple(range(8))
 
 
@@ -215,7 +235,10 @@ class Config:
             raise TypeError(f"subject must be one ID such as 's026', got {self.subject!r}")
         self.data_dir = Path(self.data_dir)
         self.results_dir = Path(self.results_dir)
+        self._check_choices()
+        self._check_ranges()
 
+    def _check_choices(self):
         for f in fields(self):
             choices = f.metadata.get("choices")
             if choices is None:
@@ -229,6 +252,8 @@ class Config:
             raise ValueError(
                 f"device: {self.device!r} must be 'auto', 'cpu', 'cuda' or 'cuda:<index>'"
             )
+
+    def _check_ranges(self):
         for name in ("test_fraction", "val_fraction"):
             if not 0 < getattr(self, name) < 1:
                 raise ValueError(f"{name} must be between 0 and 1, got {getattr(self, name)}")

@@ -134,7 +134,6 @@ def make_eeg_input(
     """
     eeg = eeg.astype(np.float32)
     eeg = np.nan_to_num(eeg, nan=0.0, posinf=0.0, neginf=0.0)
-    eeg = clip_extreme_values(eeg, clip_value=clip_value)
 
     crop_start, crop_end = get_crop_sample_indices(
         n_samples=eeg.shape[-1],
@@ -162,8 +161,7 @@ def make_eeg_input(
 
     band_arrays = []
     for band_name, (low, high) in BANDS.items():
-        band_name_lower = band_name.lower()
-        order = 2 if band_name_lower in ["scp", "slow", "delta"] else 4
+        order = 2 if band_name in ("slow", "delta") else 4
 
         log.info("Filtering %s: %s-%s Hz on the full epoch, then cropping", band_name, low, high)
 

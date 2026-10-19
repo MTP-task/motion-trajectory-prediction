@@ -14,7 +14,14 @@ from sklearn.model_selection import train_test_split
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 
-from mtp.config import EEG_FS, KEY_TO_TARGET_ID, LABEL_TO_KEY, TRAJ_KEY_ALIAS
+from mtp.config import (
+    EEG_FS,
+    KEY_TO_TARGET_ID,
+    LABEL_TO_KEY,
+    TARGET_ORDER,
+    TARGET_STREAMS,
+    TRAJECTORY_STREAMS,
+)
 from mtp.features import make_eeg_input, normalize_imu_train_only
 
 log = logging.getLogger(__name__)
@@ -90,7 +97,7 @@ def list_subjects(data_dir) -> list[str]:
     return sorted(subjects)
 
 
-TRAJECTORY_KEYS = ["shoulder", "elbow", "wirst", "IMU"]
+TRAJECTORY_KEYS = [key for key, _names in TRAJECTORY_STREAMS.values()]
 
 
 def load_eeg_and_trajectory(eeg_path, traj_path, name: str):
@@ -117,7 +124,8 @@ def load_eeg_and_trajectory(eeg_path, traj_path, name: str):
     ValueError
         If the trajectory file does not have this format.
     """
-    eeg = np.load(eeg_path, allow_pickle=True)
+    eeg = np.load(eeg_path)
+    # The trajectory file holds a Python dict, which np.save stores with pickle.
     traj = np.load(traj_path, allow_pickle=True).item()
 
     log.info("Loaded %s EEG: %s %s", name, eeg.shape, eeg.dtype)
@@ -154,7 +162,7 @@ def load_labels_clean(labels_path, name: str) -> np.ndarray:
     ValueError
         If the file contains any other label.
     """
-    labels = np.load(labels_path, allow_pickle=True)
+    labels = np.load(labels_path)
     labels = np.asarray(labels).astype(np.int32).ravel()
 
     valid = set(LABEL_TO_KEY.keys())
@@ -176,67 +184,30 @@ def load_labels_clean(labels_path, name: str) -> np.ndarray:
     return labels
 
 
+def _stream_parts(target_stream: str):
+    """Return the (file key, output names) of each signal in `target_stream`."""
+    if target_stream not in TARGET_STREAMS:
+        raise ValueError(
+            f"Unknown target stream {target_stream!r}; expected one of {list(TARGET_STREAMS)}"
+        )
+    return [TRAJECTORY_STREAMS[part] for part in TARGET_STREAMS[target_stream]]
+
+
 def _make_dim_names(target_stream: str):
-    if target_stream in ["wrist", "wirst", "elbow", "shoulder"]:
-        clean_name = "wrist" if target_stream == "wirst" else target_stream
-        return [f"{clean_name}_Vx", f"{clean_name}_Vy", f"{clean_name}_Vz"]
-
-    if target_stream == "imu":
-        return [
-            "IMU_elbow_rotVx",
-            "IMU_elbow_rotVy",
-            "IMU_elbow_rotVz",
-            "IMU_wrist_rotVx",
-            "IMU_wrist_rotVy",
-            "IMU_wrist_rotVz",
-        ]
-
-    if target_stream == "all_xyz":
-        return [
-            "shoulder_Vx",
-            "shoulder_Vy",
-            "shoulder_Vz",
-            "elbow_Vx",
-            "elbow_Vy",
-            "elbow_Vz",
-            "wrist_Vx",
-            "wrist_Vy",
-            "wrist_Vz",
-        ]
-
-    if target_stream == "all_kin":
-        return [
-            "shoulder_Vx",
-            "shoulder_Vy",
-            "shoulder_Vz",
-            "elbow_Vx",
-            "elbow_Vy",
-            "elbow_Vz",
-            "wrist_Vx",
-            "wrist_Vy",
-            "wrist_Vz",
-            "IMU_elbow_rotVx",
-            "IMU_elbow_rotVy",
-            "IMU_elbow_rotVz",
-            "IMU_wrist_rotVx",
-            "IMU_wrist_rotVy",
-            "IMU_wrist_rotVz",
-        ]
-
-    raise ValueError(f"Unknown TARGET_STREAM: {target_stream}")
+    return [name for _key, names in _stream_parts(target_stream) for name in names]
 
 
-def _target_ids_from_labels(labels_clean: np.ndarray, n_epochs: int, name: str = "") -> np.ndarray:
+def _target_ids_from_labels(labels_clean: np.ndarray, n_trials: int, name: str = "") -> np.ndarray:
     """Convert labels 101-104 to target indices 0-3.
 
-    Raises ValueError if there are not exactly `n_epochs` labels or a label is unknown.
+    Raises ValueError if there are not exactly `n_trials` labels or a label is unknown.
     """
     labels_clean = np.asarray(labels_clean).astype(np.int32).ravel()
 
-    if labels_clean.shape[0] != n_epochs:
+    if labels_clean.shape[0] != n_trials:
         raise ValueError(
             f"{name}: labels_clean length ({labels_clean.shape[0]}) does not match "
-            f"number of epochs ({n_epochs})."
+            f"number of trials ({n_trials})."
         )
 
     target_ids = []
@@ -258,26 +229,8 @@ def _get_target_array(traj: dict, target_stream: str) -> np.ndarray:
     The result has shape (n_trials, 150, n_outputs), with 3 outputs for one joint, 6 for
     "imu", 9 for "all_xyz" and 15 for "all_kin".
     """
-    if target_stream in ["wrist", "wirst", "elbow", "shoulder"]:
-        key = TRAJ_KEY_ALIAS[target_stream]
-        return traj[key]
-
-    if target_stream == "imu":
-        return traj["IMU"]
-
-    if target_stream == "all_xyz":
-        return np.concatenate(
-            [traj["shoulder"], traj["elbow"], traj["wirst"]],
-            axis=-1,
-        )
-
-    if target_stream == "all_kin":
-        return np.concatenate(
-            [traj["shoulder"], traj["elbow"], traj["wirst"], traj["IMU"]],
-            axis=-1,
-        )
-
-    raise ValueError(f"Unknown TARGET_STREAM: {target_stream}")
+    arrays = [traj[key] for key, _names in _stream_parts(target_stream)]
+    return arrays[0] if len(arrays) == 1 else np.concatenate(arrays, axis=-1)
 
 
 def build_target_sequence(traj: dict, target_stream: str, labels_clean: np.ndarray):
@@ -307,7 +260,7 @@ def build_target_sequence(traj: dict, target_stream: str, labels_clean: np.ndarr
     y = _get_target_array(traj, target_stream).astype(np.float32)
     target_ids = _target_ids_from_labels(
         labels_clean=labels_clean,
-        n_epochs=y.shape[0],
+        n_trials=y.shape[0],
         name="trajectory target",
     )
     return y, target_ids, dim_names
@@ -333,7 +286,7 @@ def build_imu_sequence(traj: dict, labels_clean: np.ndarray):
     imu = traj["IMU"].astype(np.float32)
     # Called only to check that labels_clean and the IMU data have the same trial count.
     _target_ids_from_labels(
-        labels_clean=labels_clean, n_epochs=imu.shape[0], name="IMU trajectory"
+        labels_clean=labels_clean, n_trials=imu.shape[0], name="IMU trajectory"
     )
     return imu
 
@@ -438,8 +391,7 @@ def prepare_dataset(cfg, condition: str, with_imu: bool):
         - ``sub_<split>``: subject index of each trial, always 0
         - ``imu_<split>``: normalized IMU signals, shape (n_trials, 150, 6), if `with_imu`
 
-        It also holds ``dim_names``, ``n_bands``, ``n_channels``, ``out_dim`` and, if
-        `with_imu`, the ``imu_scaler`` fitted on the training trials.
+        It also holds ``dim_names``, ``n_bands``, ``n_channels`` and ``out_dim``.
     """
     paths = {
         kind: find_data_file(cfg.data_dir, kind, cfg.subject, condition) for kind in DATA_FILES
@@ -487,7 +439,7 @@ def prepare_dataset(cfg, condition: str, with_imu: bool):
         "%s split (trials per target 1-4): %s",
         condition,
         " | ".join(
-            f"{split} {len(idx)} {np.bincount(target_ids[idx], minlength=4).tolist()}"
+            f"{split} {len(idx)} {np.bincount(target_ids[idx], minlength=len(TARGET_ORDER)).tolist()}"
             for split, idx in split_idx.items()
         ),
     )
@@ -506,12 +458,10 @@ def prepare_dataset(cfg, condition: str, with_imu: bool):
         data[f"sub_{split}"] = subject_ids[idx]
 
     if with_imu:
-        imu_train_n, imu_val_n, imu_test_n, imu_scaler = normalize_imu_train_only(
+        imu_train_n, imu_val_n, imu_test_n, _scaler = normalize_imu_train_only(
             *(imu[split_idx[split]] for split in SPLITS)
         )
-        data.update(
-            imu_train=imu_train_n, imu_val=imu_val_n, imu_test=imu_test_n, imu_scaler=imu_scaler
-        )
+        data.update(imu_train=imu_train_n, imu_val=imu_val_n, imu_test=imu_test_n)
 
     data.update(
         dim_names=dim_names, n_bands=X.shape[1], n_channels=X.shape[2], out_dim=y.shape[-1]

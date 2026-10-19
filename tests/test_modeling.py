@@ -12,9 +12,11 @@ from mtp.modeling.models import (
     EEGOnlyModel,
     FullPrivilegedModel,
     FusionModel,
+    freeze_all_except,
     linear_resample_matrix,
 )
 from mtp.modeling.objectives import fusion_zero_imu
+from mtp.modeling.trainers import EarlyStopping
 
 DIMS = {"n_bands": 2, "n_channels": 4, "out_dim": 9}
 
@@ -100,19 +102,48 @@ def test_unknown_fusion_is_rejected():
         FusionModel("sum", **DIMS)
 
 
-def test_eeg_only_and_teacher_student_shapes():
-    eeg, imu = torch.randn(3, 2, 4, 2560), torch.randn(3, 150, 6)
-    subject_id = torch.zeros(3, dtype=torch.long)
+def test_eeg_only_shapes():
+    eeg = torch.randn(3, 2, 4, 2560)
     assert EEGOnlyModel(**DIMS).eval()(eeg).shape == (3, 150, 9)
 
-    teacher, student = DistillationSimpleModel(**DIMS).eval().forward_teacher_student(eeg, imu)
-    assert teacher.shape == student.shape == (3, 150, 9)
 
-    teacher, student, h_eeg, _ = (
-        FullPrivilegedModel(**DIMS).eval().forward_teacher_student(eeg, imu, subject_id)
-    )
+@pytest.mark.parametrize("model_class", [DistillationSimpleModel, FullPrivilegedModel])
+def test_teacher_student_models_share_one_interface(model_class):
+    eeg, imu = torch.randn(3, 2, 4, 2560), torch.randn(3, 150, 6)
+    subject_id = torch.zeros(3, dtype=torch.long)
+    model = model_class(**DIMS).eval()
+
+    teacher, student = model.forward_teacher_student(eeg, imu, subject_id)
     assert teacher.shape == student.shape == (3, 150, 9)
+    assert model.forward_student(eeg, subject_id).shape == (3, 150, 9)
+
+
+def test_student_features():
+    eeg, subject_id = torch.randn(3, 2, 4, 2560), torch.zeros(3, dtype=torch.long)
+    model = FullPrivilegedModel(**DIMS).eval()
+    y_student, h_eeg = model.forward_student_with_features(eeg, subject_id)
+    assert torch.equal(y_student, model.forward_student(eeg, subject_id))
     assert h_eeg.shape == (3, 64, 150)
+
+
+def test_freeze_all_except():
+    model = FullPrivilegedModel(**DIMS)
+    freeze_all_except(model, model.eeg_encoder, model.student_head)
+    trainable = {name.split(".")[0] for name, p in model.named_parameters() if p.requires_grad}
+    assert trainable == {"eeg_encoder", "student_head"}
+
+
+def test_early_stopping_keeps_the_best_weights():
+    model = torch.nn.Linear(1, 1)
+    stopper = EarlyStopping(patience=2)
+    assert not stopper.should_stop(1.0, model)
+    best = {k: v.clone() for k, v in model.state_dict().items()}
+    with torch.no_grad():
+        model.weight.add_(1.0)
+    assert not stopper.should_stop(2.0, model)  # worse, 1 epoch without improvement
+    assert stopper.should_stop(3.0, model)  # worse again, patience reached
+    assert stopper.best_loss == 1.0
+    assert torch.equal(stopper.best_state["weight"], best["weight"])
 
 
 def test_resample_matrix_matches_interpolate():

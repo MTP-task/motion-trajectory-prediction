@@ -76,6 +76,39 @@ class EpochResult:
         return {**self.metrics[pred], **self.losses}
 
 
+class EarlyStopping:
+    """Keep the weights with the lowest validation loss and decide when to stop.
+
+    Parameters
+    ----------
+    patience : int
+        Stop after this many epochs in a row without a lower validation loss.
+
+    Attributes
+    ----------
+    best_loss : float
+        Lowest validation loss so far.
+    best_state : dict or None
+        Copy of the model weights at that loss, or None before the first epoch.
+    """
+
+    def __init__(self, patience: int):
+        self.patience = patience
+        self.best_loss = math.inf
+        self.best_state = None
+        self.epochs_without_improvement = 0
+
+    def should_stop(self, val_loss: float, model) -> bool:
+        """Record one epoch's validation loss and return True if training should stop."""
+        if val_loss < self.best_loss:
+            self.best_loss = val_loss
+            self.best_state = copy.deepcopy(model.state_dict())
+            self.epochs_without_improvement = 0
+            return False
+        self.epochs_without_improvement += 1
+        return self.epochs_without_improvement >= self.patience
+
+
 def trainable_parameters(model):
     """Return the parameters of `model` that are not frozen."""
     return [p for p in model.parameters() if p.requires_grad]
@@ -188,9 +221,7 @@ def fit(
         optimizer, mode="min", factor=cfg.lr_decay_factor, patience=cfg.lr_decay_patience
     )
 
-    best_state = None
-    best_val_loss = math.inf
-    wait = 0
+    stopper = EarlyStopping(cfg.patience)
     stage_rows = []
 
     log.info(
@@ -232,24 +263,18 @@ def fit(
             }
         )
 
-        if val.losses["loss"] < best_val_loss:
-            best_val_loss = val.losses["loss"]
-            best_state = copy.deepcopy(model.state_dict())
-            wait = 0
-        else:
-            wait += 1
-            if wait >= cfg.patience:
-                log.info("%s: early stopping after epoch %d.", stage_name, epoch)
-                break
+        if stopper.should_stop(val.losses["loss"], model):
+            log.info("%s: early stopping after epoch %d.", stage_name, epoch)
+            break
 
-    if best_state is not None:
-        model.load_state_dict(best_state)
+    if stopper.best_state is not None:
+        model.load_state_dict(stopper.best_state)
 
     return stage_rows
 
 
 @torch.no_grad()
-def compute_me_prototypes(model, loader, device, num_targets: int = 4):
+def compute_me_prototypes(model, loader, device, num_targets: int):
     """Compute one prototype per target from ME data (Baseline 5).
 
     A prototype is the student's EEG features averaged over time and over all ME
@@ -280,7 +305,7 @@ def compute_me_prototypes(model, loader, device, num_targets: int = 4):
 
     for eeg, _imu, _y, target_id, subject_id in loader:
         eeg, subject_id = eeg.to(device), subject_id.to(device)
-        _y_pred, h = model.forward_student(eeg, subject_id, return_latent=True)
+        h = model.encode_eeg_student(eeg, subject_id)
         z = h.mean(dim=-1)
         z_list.append(z.detach().cpu())
         id_list.append(target_id.detach().cpu())

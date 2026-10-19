@@ -64,8 +64,8 @@ def fusion_zero_imu(model, batch):
 
 def distill_student(model, batch):
     """Predict with the EEG-only student of a teacher-student model."""
-    eeg, y, _target_id, _subject_id = batch
-    return model.forward_student(eeg), y
+    eeg, y, _target_id, subject_id = batch
+    return model.forward_student(eeg, subject_id), y
 
 
 def _single_prediction_row(train, val):
@@ -121,36 +121,19 @@ class TeacherStudent:
         Weights of the three terms.
     kd_beta : float
         SmoothL1 threshold of the last term.
-    use_subject_id : bool
-        Pass subject IDs to ``model.forward_teacher_student``, as Baseline 5's model
-        requires.
     """
 
-    def __init__(
-        self,
-        criterion,
-        teacher_weight,
-        student_weight,
-        kd_weight,
-        kd_beta=0.5,
-        use_subject_id=False,
-    ):
+    def __init__(self, criterion, teacher_weight, student_weight, kd_weight, kd_beta=0.5):
         self.teacher_weight = teacher_weight
         self.student_weight = student_weight
         self.kd_weight = kd_weight
-        self.use_subject_id = use_subject_id
         self.reg_criterion = criterion
         self.kd_criterion = nn.SmoothL1Loss(beta=kd_beta)
 
     def __call__(self, model, batch):
         """Return the loss and both predictions for one batch as a `StepOutput`."""
         eeg, imu, y, _target_id, subject_id = batch
-        if self.use_subject_id:
-            y_teacher, y_student, _h_eeg, _h_teacher = model.forward_teacher_student(
-                eeg, imu, subject_id
-            )
-        else:
-            y_teacher, y_student = model.forward_teacher_student(eeg, imu)
+        y_teacher, y_student = model.forward_teacher_student(eeg, imu, subject_id)
 
         teacher_loss = self.reg_criterion(y_teacher, y)
         student_loss = self.reg_criterion(y_student, y)
@@ -200,7 +183,7 @@ class PrototypeAlignedStudent:
     def __call__(self, model, batch):
         """Return the loss, its two terms and the prediction for one batch."""
         eeg, y, target_id, subject_id = batch
-        y_pred, h_eeg = model.forward_student(eeg, subject_id, return_latent=True)
+        y_pred, h_eeg = model.forward_student_with_features(eeg, subject_id)
         reg_loss = self.criterion(y_pred, y)
 
         if self.prototypes is not None and self.proto_weight > 0:

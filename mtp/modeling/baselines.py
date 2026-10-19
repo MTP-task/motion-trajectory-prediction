@@ -31,8 +31,7 @@ from mtp.modeling.models import (
     EEGOnlyModel,
     FullPrivilegedModel,
     FusionModel,
-    set_distill_student_finetune_mode,
-    set_full_student_finetune_mode,
+    freeze_all_except,
 )
 from mtp.modeling.objectives import (
     PrototypeAlignedStudent,
@@ -214,10 +213,11 @@ def fusion_baseline(exp: Experiment, spec: FusionBaseline):
     spec : FusionBaseline
         Which of the three baselines to run.
     """
-    num_heads = {
+    attention_heads = {
         "cross_mha": exp.cfg.cross_attention_heads,
         "self_mha": exp.cfg.normal_mha_heads,
-    }.get(spec.fusion, 4)
+    }
+    num_heads = attention_heads.get(spec.fusion)
     model = FusionModel(
         spec.fusion,
         **exp.model_dims,
@@ -302,7 +302,7 @@ def baseline_4(exp: Experiment):
         "student_EEG_only",
     )
 
-    set_distill_student_finetune_mode(model)
+    freeze_all_except(model, model.eeg_encoder, model.student_head)
     student = Supervised(distill_student, loss)
     exp.fit("B4 Stage 2: MI student fine-tuning", model, "mi", student, exp.finetune)
     exp.record(
@@ -347,7 +347,6 @@ def baseline_5(exp: Experiment):
         cfg.student_sup_loss_weight,
         cfg.kd_loss_weight,
         kd_beta=cfg.kd_beta,
-        use_subject_id=True,
     )
 
     exp.fit("B5 Stage 1: ME full privileged pretraining", model, "me", distill, exp.pretrain)
@@ -374,7 +373,7 @@ def baseline_5(exp: Experiment):
     )
     log.info("Computed ME prototypes: %s", tuple(prototypes.shape))
 
-    set_full_student_finetune_mode(model)
+    freeze_all_except(model, model.eeg_encoder, model.subject_film, model.student_head)
     exp.fit(
         "B5 Stage 2: MI fine-tuning with prototype alignment",
         model,

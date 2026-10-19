@@ -53,7 +53,7 @@ class TCNBlock(nn.Module):
     """
 
     def __init__(
-        self, channels: int, kernel_size: int = 3, dilation: int = 1, dropout: float = 0.15
+        self, channels: int, kernel_size: int = 3, dilation: int = 1, dropout: float = 0.20
     ):
         super().__init__()
         pad = (kernel_size - 1) * dilation // 2
@@ -521,8 +521,11 @@ class NormalMultiHeadAttentionFusion(nn.Module):
 FUSION_BLOCKS = ("concat", "cross_mha", "self_mha")
 
 
-def make_fusion_block(fusion: str, latent_dim: int, num_heads: int = 4, dropout: float = 0.20):
-    """Create the fusion block named `fusion`: "concat", "cross_mha" or "self_mha"."""
+def make_fusion_block(fusion: str, latent_dim: int, num_heads=4, dropout: float = 0.20):
+    """Create the fusion block named `fusion`: "concat", "cross_mha" or "self_mha".
+
+    `num_heads` is only used by the attention blocks and may be None for "concat".
+    """
     if fusion == "concat":
         return ConcatFusion(latent_dim, dropout)
     if fusion == "cross_mha":
@@ -551,8 +554,8 @@ class FusionModel(nn.Module):
         Number of output time steps.
     latent_dim : int
         Number of feature channels.
-    num_heads : int
-        Number of attention heads. Not used by "concat".
+    num_heads : int or None
+        Number of attention heads. Not used by "concat", which accepts None.
     dropout : float
         Dropout rate.
     """
@@ -599,6 +602,8 @@ class DistillationSimpleModel(nn.Module):
 
     One EEG encoder feeds two heads. The teacher head sees the EEG features fused with
     the IMU features by `ConcatFusion`; the student head sees only the EEG features.
+    It has the same methods as `FullPrivilegedModel`, so the same training code works for
+    both; the subject IDs are accepted but not used.
 
     Parameters
     ----------
@@ -624,7 +629,7 @@ class DistillationSimpleModel(nn.Module):
         self.teacher_head = SeqHead(latent_dim, out_dim, dropout)
         self.student_head = SeqHead(latent_dim, out_dim, dropout)
 
-    def forward_teacher_student(self, eeg, imu):
+    def forward_teacher_student(self, eeg, imu, subject_id=None):
         """Predict with both heads.
 
         Returns
@@ -638,7 +643,7 @@ class DistillationSimpleModel(nn.Module):
         y_student = self.student_head(h_eeg)
         return y_teacher, y_student
 
-    def forward_student(self, eeg):
+    def forward_student(self, eeg, subject_id=None):
         """Predict from the EEG alone with the student head."""
         h_eeg = self.eeg_encoder(eeg)
         return self.student_head(h_eeg)
@@ -647,7 +652,10 @@ class DistillationSimpleModel(nn.Module):
 class SubjectFiLM(nn.Module):
     """Scale and shift EEG features with values learned for each subject.
 
-    The scale starts at 1 and the shift at 0, so the layer starts as an identity.
+    The scale starts at 1 and the shift at 0, so the layer starts as an identity. Each
+    run currently trains on one subject, so in practice this is a single learned scale
+    and shift for all trials. It is kept so the model can be trained on several subjects
+    at once later.
 
     Parameters
     ----------
@@ -819,47 +827,34 @@ class FullPrivilegedModel(nn.Module):
         Returns
         -------
         y_teacher, y_student : Tensor, shape (batch, target_len, out_dim)
-            Predictions of the teacher and the student.
-        h_eeg, h_teacher : Tensor, shape (batch, latent_dim, target_len)
-            The student's EEG features and the teacher's fused features.
         """
         h_eeg = self.encode_eeg_student(eeg, subject_id)
         h_imu = self.imu_encoder(imu)
         h_teacher = self.fusion(h_eeg, h_imu)
         y_teacher = self.teacher_head(h_teacher)
         y_student = self.student_head(h_eeg)
-        return y_teacher, y_student, h_eeg, h_teacher
+        return y_teacher, y_student
 
-    def forward_student(self, eeg, subject_id, return_latent: bool = False):
-        """Predict from the EEG alone with the student head.
+    def forward_student(self, eeg, subject_id):
+        """Predict from the EEG alone with the student head."""
+        return self.student_head(self.encode_eeg_student(eeg, subject_id))
 
-        If `return_latent` is True, the EEG features, of shape
-        (batch, latent_dim, target_len), are returned too.
+    def forward_student_with_features(self, eeg, subject_id):
+        """Predict with the student head and also return the EEG features it used.
+
+        Returns
+        -------
+        y_student : Tensor, shape (batch, target_len, out_dim)
+        h_eeg : Tensor, shape (batch, latent_dim, target_len)
         """
         h_eeg = self.encode_eeg_student(eeg, subject_id)
-        y_student = self.student_head(h_eeg)
-        if return_latent:
-            return y_student, h_eeg
-        return y_student
+        return self.student_head(h_eeg), h_eeg
 
 
-def set_full_student_finetune_mode(model: FullPrivilegedModel):
-    """Freeze everything except the EEG encoder, the SubjectFiLM layer and the student head."""
+def freeze_all_except(model: nn.Module, *modules: nn.Module):
+    """Freeze every parameter of `model` except those of the given submodules."""
     for p in model.parameters():
         p.requires_grad = False
-    for p in model.eeg_encoder.parameters():
-        p.requires_grad = True
-    for p in model.subject_film.parameters():
-        p.requires_grad = True
-    for p in model.student_head.parameters():
-        p.requires_grad = True
-
-
-def set_distill_student_finetune_mode(model: DistillationSimpleModel):
-    """Freeze everything except the EEG encoder and the student head."""
-    for p in model.parameters():
-        p.requires_grad = False
-    for p in model.eeg_encoder.parameters():
-        p.requires_grad = True
-    for p in model.student_head.parameters():
-        p.requires_grad = True
+    for module in modules:
+        for p in module.parameters():
+            p.requires_grad = True

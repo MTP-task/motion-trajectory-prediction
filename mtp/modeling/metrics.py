@@ -132,9 +132,7 @@ def compute_metrics_np(y_true: np.ndarray, y_pred: np.ndarray, dim_names: list[s
     return metrics
 
 
-def long_axis_rows(
-    subject, baseline_name, metrics, dim_names, evaluation_task="MI_test_final", branch="final"
-):
+def long_axis_rows(subject, baseline_name, metrics, dim_names, evaluation_task, branch):
     """Return one row per output dimension for the "axis_metrics" sheet.
 
     Parameters

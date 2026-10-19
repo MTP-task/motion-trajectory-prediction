@@ -75,6 +75,20 @@ def test_unknown_label_is_rejected():
         build_target_sequence(toy_trajectory(2), "all_xyz", np.array([101, 105]))
 
 
+def test_unknown_target_stream_is_rejected():
+    with pytest.raises(ValueError, match="hand"):
+        build_target_sequence(toy_trajectory(2), "hand", np.array([101, 102]))
+
+
+def test_all_kin_order_and_names():
+    y, _, dim_names = build_target_sequence(toy_trajectory(4), "all_kin", np.array([101] * 4))
+    # shoulder (0), elbow (1), wrist (2), then the 6 IMU signals (3)
+    assert y[0, 0].tolist() == [0.0] * 3 + [1.0] * 3 + [2.0] * 3 + [3.0] * 6
+    assert dim_names[:3] == ["shoulder_Vx", "shoulder_Vy", "shoulder_Vz"]
+    assert dim_names[6:9] == ["wrist_Vx", "wrist_Vy", "wrist_Vz"]
+    assert dim_names[-1] == "IMU_wrist_rotVz"
+
+
 def test_split_is_stratified_and_disjoint():
     target_ids = np.repeat(np.arange(4), 60)
     train, val, test = stratified_split_indices(target_ids, seed=42)

@@ -10,6 +10,7 @@ from mtp.config import (
     BANDS,
     EEG_CROP_TMAX,
     EEG_CROP_TMIN,
+    EEG_EPOCH_TMAX,
     EEG_EPOCH_TMIN,
     EEG_FS,
     MODEL_EEG_SAMPLES,
@@ -26,9 +27,9 @@ def summarize_baseline(
     baseline_id,
     baseline_name,
     metrics,
-    notes="",
-    evaluation_task="MI_test_final",
-    branch="final",
+    notes,
+    evaluation_task,
+    branch,
 ):
     """Build one row of the "summary" sheet.
 
@@ -152,7 +153,7 @@ class ResultsLog:
             ("dim_names", ", ".join(self.dim_names)),
             ("eeg_fs", EEG_FS),
             ("traj_fs", TRAJ_FS),
-            ("input_epoch", f"{EEG_EPOCH_TMIN} to 7.0 s assumed"),
+            ("input_epoch", f"{EEG_EPOCH_TMIN} to {EEG_EPOCH_TMAX} s"),
             ("model_crop", f"{EEG_CROP_TMIN} to {EEG_CROP_TMAX} s"),
             ("model_eeg_samples", MODEL_EEG_SAMPLES),
             ("bands", str(BANDS)),
