@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+from torch.utils.data import RandomSampler, SequentialSampler
 
 import harness
 from mtp.config import Config
@@ -10,6 +11,7 @@ from mtp.dataset import (
     find_data_file,
     list_subjects,
     make_loader,
+    make_loaders,
     prepare_dataset,
     stratified_split_indices,
 )
@@ -105,13 +107,15 @@ def test_prepare_dataset_and_loader(tmp_path):
     cfg = Config(subject=harness.SUBJECT, data_dir=tmp_path)
     data = prepare_dataset(cfg, "ME", with_imu=True)
 
-    assert data["X_train"].shape[1:] == (6, 8, 2560)
-    assert data["X_train"].dtype == np.float32
-    assert np.abs(data["X_train"]).max() <= cfg.eeg_clip_value
-    assert sum(len(data[f"id_{split}"]) for split in ("train", "val", "test")) == 48
+    assert data.train.X.shape[1:] == (6, 8, 2560)
+    assert data.train.X.dtype == np.float32
+    assert np.abs(data.train.X).max() <= cfg.eeg_clip_value
+    assert sum(len(split.target_id) for split in data.splits()) == 48
+    assert (data.n_bands, data.n_channels, data.out_dim) == (6, 8, 9)
+    assert data.train.imu.shape[1:] == (150, 6)
 
-    data["y_train_n"] = data["y_train"]  # make_loader reads the normalized targets
-    batch = next(iter(make_loader(data, "train", batch_size=4, with_imu=True)))
+    data.train.y_norm = data.train.y  # make_loader reads the normalized targets
+    batch = next(iter(make_loader(data.train, batch_size=4, shuffle=True, with_imu=True)))
     assert [tuple(t.shape) for t in batch] == [
         (4, 6, 8, 2560),
         (4, 150, 6),
@@ -119,3 +123,19 @@ def test_prepare_dataset_and_loader(tmp_path):
         (4,),
         (4,),
     ]
+
+
+def test_mi_has_no_imu_and_only_training_is_shuffled(tmp_path):
+    harness.write_mock_data(tmp_path)
+    data = prepare_dataset(
+        Config(subject=harness.SUBJECT, data_dir=tmp_path), "MI", with_imu=False
+    )
+    assert all(split.imu is None for split in data.splits())
+
+    for split in data.splits():
+        split.y_norm = split.y
+    loaders = make_loaders(data, batch_size=4)
+    assert isinstance(loaders.train.sampler, RandomSampler)
+    assert isinstance(loaders.val.sampler, SequentialSampler)
+    assert isinstance(loaders.test.sampler, SequentialSampler)
+    assert len(next(iter(loaders.test))) == 4

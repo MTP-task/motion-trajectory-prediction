@@ -69,12 +69,12 @@ def baseline_1(exp: Experiment):
         dropout=exp.cfg.dropout,
     ).to(exp.device)
 
-    exp.fit(name, model, "mi", objective, exp.finetune)
+    exp.fit(name, model, exp.mi_loaders, objective, exp.finetune)
 
     exp.record(
         1,
         name,
-        exp.evaluate(model, "mi_test", objective).flat(),
+        exp.evaluate(model, exp.mi_loaders.test, objective).flat(),
         "Train only on MI EEG; evaluate on MI test",
         "MI_test",
         "EEG_only",
@@ -82,7 +82,7 @@ def baseline_1(exp: Experiment):
     exp.record(
         1,
         name,
-        exp.evaluate(model, "me_eeg_test", objective).flat(),
+        exp.evaluate(model, exp.me_eeg_loaders.test, objective).flat(),
         "Same MI-only trained EEG model evaluated on ME test",
         "ME_test_final_model",
         "EEG_only",
@@ -100,21 +100,23 @@ def baseline_2(exp: Experiment):
         dropout=exp.cfg.dropout,
     ).to(exp.device)
 
-    exp.fit("B2 Stage 1: ME EEG-only pretraining", model, "me_eeg", objective, exp.pretrain)
+    exp.fit(
+        "B2 Stage 1: ME EEG-only pretraining", model, exp.me_eeg_loaders, objective, exp.pretrain
+    )
     exp.record(
         2,
         name,
-        exp.evaluate(model, "me_eeg_test", objective).flat(),
+        exp.evaluate(model, exp.me_eeg_loaders.test, objective).flat(),
         "After ME EEG-only pretraining, before MI fine-tuning",
         "ME_test_after_pretrain",
         "EEG_only",
     )
 
-    exp.fit("B2 Stage 2: MI EEG-only fine-tuning", model, "mi", objective, exp.finetune)
+    exp.fit("B2 Stage 2: MI EEG-only fine-tuning", model, exp.mi_loaders, objective, exp.finetune)
     exp.record(
         2,
         name,
-        exp.evaluate(model, "mi_test", objective).flat(),
+        exp.evaluate(model, exp.mi_loaders.test, objective).flat(),
         "ME EEG-only pretraining, then MI EEG-only fine-tuning; final MI test",
         "MI_test",
         "EEG_only",
@@ -122,7 +124,7 @@ def baseline_2(exp: Experiment):
     exp.record(
         2,
         name,
-        exp.evaluate(model, "me_eeg_test", objective).flat(),
+        exp.evaluate(model, exp.me_eeg_loaders.test, objective).flat(),
         "Final MI-fine-tuned model evaluated on ME test",
         "ME_test_after_MI_finetune",
         "EEG_only",
@@ -229,11 +231,11 @@ def fusion_baseline(exp: Experiment, spec: FusionBaseline):
     loss = exp.regression_loss()
     real_imu, zero_imu = Supervised(fusion_real_imu, loss), Supervised(fusion_zero_imu, loss)
 
-    exp.fit(spec.pretrain_stage, model, "me", real_imu, exp.pretrain)
+    exp.fit(spec.pretrain_stage, model, exp.me_loaders, real_imu, exp.pretrain)
     exp.record(
         spec.id,
         spec.name,
-        exp.evaluate(model, "me_test", real_imu).flat(),
+        exp.evaluate(model, exp.me_loaders.test, real_imu).flat(),
         spec.notes_after_pretrain,
         "ME_test_after_pretrain",
         spec.branch_real_imu,
@@ -242,14 +244,14 @@ def fusion_baseline(exp: Experiment, spec: FusionBaseline):
     exp.fit(
         f"B{spec.id} Stage 2: MI EEG-only fine-tuning with zero IMU",
         model,
-        "mi",
+        exp.mi_loaders,
         zero_imu,
         exp.finetune,
     )
     exp.record(
         spec.id,
         spec.name,
-        exp.evaluate(model, "mi_test", zero_imu).flat(),
+        exp.evaluate(model, exp.mi_loaders.test, zero_imu).flat(),
         spec.notes_mi_test,
         "MI_test",
         spec.branch_zero_imu,
@@ -257,7 +259,7 @@ def fusion_baseline(exp: Experiment, spec: FusionBaseline):
     exp.record(
         spec.id,
         spec.name,
-        exp.evaluate(model, "me_eeg_test", zero_imu).flat(),
+        exp.evaluate(model, exp.me_eeg_loaders.test, zero_imu).flat(),
         spec.notes_me_after_finetune,
         "ME_test_after_MI_finetune_zeroIMU",
         spec.branch_zero_imu,
@@ -283,8 +285,10 @@ def baseline_4(exp: Experiment):
         kd_beta=cfg.kd_beta,
     )
 
-    exp.fit("B4 Stage 1: ME teacher-student distillation", model, "me", distill, exp.pretrain)
-    after_pretrain = exp.evaluate(model, "me_test", distill)
+    exp.fit(
+        "B4 Stage 1: ME teacher-student distillation", model, exp.me_loaders, distill, exp.pretrain
+    )
+    after_pretrain = exp.evaluate(model, exp.me_loaders.test, distill)
     exp.record(
         4,
         name,
@@ -304,11 +308,11 @@ def baseline_4(exp: Experiment):
 
     freeze_all_except(model, model.eeg_encoder, model.student_head)
     student = Supervised(distill_student, loss)
-    exp.fit("B4 Stage 2: MI student fine-tuning", model, "mi", student, exp.finetune)
+    exp.fit("B4 Stage 2: MI student fine-tuning", model, exp.mi_loaders, student, exp.finetune)
     exp.record(
         4,
         name,
-        exp.evaluate(model, "mi_test", student).flat(),
+        exp.evaluate(model, exp.mi_loaders.test, student).flat(),
         "ME EEG+IMU teacher teaches EEG-only student; final MI test; no prototype alignment",
         "MI_test",
         "student_EEG_only",
@@ -316,7 +320,7 @@ def baseline_4(exp: Experiment):
     exp.record(
         4,
         name,
-        exp.evaluate(model, "me_eeg_test", student).flat(),
+        exp.evaluate(model, exp.me_eeg_loaders.test, student).flat(),
         "Final MI-fine-tuned EEG-only student evaluated on ME test",
         "ME_test_after_MI_finetune",
         "student_EEG_only",
@@ -349,8 +353,10 @@ def baseline_5(exp: Experiment):
         kd_beta=cfg.kd_beta,
     )
 
-    exp.fit("B5 Stage 1: ME full privileged pretraining", model, "me", distill, exp.pretrain)
-    after_pretrain = exp.evaluate(model, "me_test", distill)
+    exp.fit(
+        "B5 Stage 1: ME full privileged pretraining", model, exp.me_loaders, distill, exp.pretrain
+    )
+    after_pretrain = exp.evaluate(model, exp.me_loaders.test, distill)
     exp.record(
         5,
         name,
@@ -369,7 +375,7 @@ def baseline_5(exp: Experiment):
     )
 
     prototypes = compute_me_prototypes(
-        model, exp.loaders["me_train"], exp.device, num_targets=len(TARGET_ORDER)
+        model, exp.me_loaders.train, exp.device, num_targets=len(TARGET_ORDER)
     )
     log.info("Computed ME prototypes: %s", tuple(prototypes.shape))
 
@@ -377,7 +383,7 @@ def baseline_5(exp: Experiment):
     exp.fit(
         "B5 Stage 2: MI fine-tuning with prototype alignment",
         model,
-        "mi",
+        exp.mi_loaders,
         PrototypeAlignedStudent(loss, prototypes, cfg.proto_loss_weight),
         exp.finetune,
     )
@@ -387,7 +393,7 @@ def baseline_5(exp: Experiment):
     exp.record(
         5,
         name,
-        exp.evaluate(model, "mi_test", student).flat(),
+        exp.evaluate(model, exp.mi_loaders.test, student).flat(),
         "Lag-aware fusion + distillation + FiLM subject adaptation + ME prototype alignment; final MI test",
         "MI_test",
         "student_EEG_only",
@@ -395,7 +401,7 @@ def baseline_5(exp: Experiment):
     exp.record(
         5,
         name,
-        exp.evaluate(model, "me_eeg_test", student).flat(),
+        exp.evaluate(model, exp.me_eeg_loaders.test, student).flat(),
         "Final MI-fine-tuned EEG-only student evaluated on ME test",
         "ME_test_after_MI_finetune",
         "student_EEG_only",

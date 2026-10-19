@@ -89,8 +89,8 @@ def run_baseline0_linear(data, scaler, dim_names, cfg):
 
     Parameters
     ----------
-    data : dict
-        One condition from `prepare_dataset`, with normalized targets ``y_<split>_n``.
+    data : PreparedCondition
+        One condition from `prepare_dataset`, with normalized targets (``y_norm``).
     scaler : dict
         Target scaler, used to score the predictions in their original units.
     dim_names : list of str
@@ -110,10 +110,8 @@ def run_baseline0_linear(data, scaler, dim_names, cfg):
     )
 
     Ftr, Fva, Fte = (
-        make_time_lagged_linear_features(
-            data[f"X_{split}"], cfg.linear_lags_sec, cfg.linear_lag_window_sec
-        )
-        for split in ("train", "val", "test")
+        make_time_lagged_linear_features(split.X, cfg.linear_lags_sec, cfg.linear_lag_window_sec)
+        for split in data.splits()
     )
 
     Ntr, Ttr, P = Ftr.shape
@@ -130,8 +128,8 @@ def run_baseline0_linear(data, scaler, dim_names, cfg):
 
     y_train_final = np.concatenate(
         [
-            data["y_train_n"].reshape(Ntr * Ttr, -1),
-            data["y_val_n"].reshape(Nva * Tva, -1),
+            data.train.y_norm.reshape(Ntr * Ttr, -1),
+            data.val.y_norm.reshape(Nva * Tva, -1),
         ],
         axis=0,
     )
@@ -146,9 +144,9 @@ def run_baseline0_linear(data, scaler, dim_names, cfg):
     model.fit(X_train_final, y_train_final)
 
     y_pred_flat = model.predict(X_test)
-    y_pred_n = y_pred_flat.reshape(data["y_test_n"].shape)
+    y_pred_n = y_pred_flat.reshape(data.test.y_norm.shape)
 
-    y_true_orig = denormalize_targets(data["y_test_n"], scaler)
+    y_true_orig = denormalize_targets(data.test.y_norm, scaler)
     y_pred_orig = denormalize_targets(y_pred_n, scaler)
 
     metrics = compute_metrics_np(y_true_orig, y_pred_orig, dim_names)

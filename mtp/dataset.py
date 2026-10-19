@@ -4,8 +4,12 @@ Step 3 writes three files per subject and condition (ME or MI): EEG epochs, velo
 trajectories and target labels. In ``data/processed`` they sit in the subfolders listed
 in `DATA_FILES`; on the lab PC (``D:/MTP_task/model``) all of them sit in one folder.
 Both layouts work.
+
+`prepare_dataset` returns a `PreparedCondition` with a `Split` each for training,
+validation and testing; `make_loaders` turns it into PyTorch `Loaders`.
 """
 
+from dataclasses import dataclass
 import logging
 from pathlib import Path
 
@@ -367,7 +371,73 @@ def denormalize_targets(y_norm: np.ndarray, scaler: dict):
 SPLITS = ("train", "val", "test")
 
 
-def prepare_dataset(cfg, condition: str, with_imu: bool):
+@dataclass
+class Split:
+    """The trials of one split (training, validation or test) of a prepared condition.
+
+    Attributes
+    ----------
+    X : ndarray of float32, shape (n_trials, n_bands, n_channels, n_samples)
+        EEG model input from `make_eeg_input`.
+    y : ndarray of float32, shape (n_trials, 150, n_outputs)
+        Velocity targets in their original units.
+    target_id : ndarray of int64, shape (n_trials,)
+        Target index (0 to 3) of each trial.
+    subject_id : ndarray of int64, shape (n_trials,)
+        Subject index of each trial. Always 0, since each run has one subject.
+    imu : ndarray of float32, shape (n_trials, 150, 6), or None
+        Normalized IMU signals. Only ME has them.
+    y_norm : ndarray of float32, or None
+        `y` scaled with the run's target scaler. `Experiment` sets it once the scaler is
+        fitted on the training trials of both conditions.
+    """
+
+    X: np.ndarray
+    y: np.ndarray
+    target_id: np.ndarray
+    subject_id: np.ndarray
+    imu: np.ndarray | None = None
+    y_norm: np.ndarray | None = None
+
+
+@dataclass
+class PreparedCondition:
+    """One condition (ME or MI) of one subject, split and ready for the models.
+
+    Attributes
+    ----------
+    train, val, test : Split
+        The three splits.
+    dim_names : list of str
+        Name of each output, such as "wrist_Vx".
+    """
+
+    train: Split
+    val: Split
+    test: Split
+    dim_names: list[str]
+
+    def splits(self) -> list[Split]:
+        """Return the training, validation and test splits, in that order."""
+        return [self.train, self.val, self.test]
+
+    @property
+    def n_bands(self) -> int:
+        """Number of filter-bank bands in the EEG input."""
+        return self.train.X.shape[1]
+
+    @property
+    def n_channels(self) -> int:
+        """Number of EEG channels."""
+        return self.train.X.shape[2]
+
+    @property
+    def out_dim(self) -> int:
+        """Number of velocity outputs."""
+        return self.train.y.shape[-1]
+
+
+def prepare_dataset(cfg, condition: str, *, with_imu: bool) -> PreparedCondition:
     """Load, split and preprocess one condition for ``cfg.subject``.
 
     Parameters
@@ -382,17 +452,33 @@ def prepare_dataset(cfg, condition: str, with_imu: bool):
 
     Returns
     -------
-    dict
-        For each split ("train", "val" and "test"):
-
-        - ``X_<split>``: EEG model input, shape (n_trials, n_bands, n_channels, 2560)
-        - ``y_<split>``: velocity targets, shape (n_trials, 150, n_outputs)
-        - ``id_<split>``: target index (0 to 3) of each trial
-        - ``sub_<split>``: subject index of each trial, always 0
-        - ``imu_<split>``: normalized IMU signals, shape (n_trials, 150, 6), if `with_imu`
-
-        It also holds ``dim_names``, ``n_bands``, ``n_channels`` and ``out_dim``.
+    PreparedCondition
     """
+    eeg, y, target_ids, dim_names, imu = _load_condition(cfg, condition, with_imu=with_imu)
+    split_idx = _split_trials(cfg, condition, target_ids)
+
+    X = make_eeg_input(
+        eeg, EEG_FS, use_filterbank=cfg.use_filterbank, clip_value=cfg.eeg_clip_value
+    )
+    log.info("%s EEG model input: %s", condition, X.shape)
+
+    imu_by_split = _normalize_imu(imu, split_idx) if with_imu else dict.fromkeys(SPLITS)
+    subject_ids = np.zeros(len(target_ids), dtype=np.int64)
+    splits = {
+        name: Split(
+            X=X[idx],
+            y=y[idx],
+            target_id=target_ids[idx],
+            subject_id=subject_ids[idx],
+            imu=imu_by_split[name],
+        )
+        for name, idx in split_idx.items()
+    }
+    return PreparedCondition(**splits, dim_names=dim_names)
+
+
+def _load_condition(cfg, condition, *, with_imu):
+    """Load the EEG, targets and, if `with_imu`, the IMU of one condition and check them."""
     paths = {
         kind: find_data_file(cfg.data_dir, kind, cfg.subject, condition) for kind in DATA_FILES
     }
@@ -410,6 +496,7 @@ def prepare_dataset(cfg, condition: str, with_imu: bool):
             f"{condition}: EEG epochs ({eeg.shape[0]}) != target epochs ({y.shape[0]})."
         )
 
+    imu = None
     if with_imu:
         imu = build_imu_sequence(traj, labels_clean)
         if imu.shape[0] != y.shape[0]:
@@ -423,7 +510,11 @@ def prepare_dataset(cfg, condition: str, with_imu: bool):
         ", ".join(dim_names),
         f", IMU {imu.shape}" if with_imu else "",
     )
+    return eeg, y, target_ids, dim_names, imu
 
+
+def _split_trials(cfg, condition, target_ids):
+    """Split the trials with `stratified_split_indices` and log how many each split got."""
     split_idx = dict(
         zip(
             SPLITS,
@@ -443,43 +534,35 @@ def prepare_dataset(cfg, condition: str, with_imu: bool):
             for split, idx in split_idx.items()
         ),
     )
-
-    X = make_eeg_input(
-        eeg, EEG_FS, use_filterbank=cfg.use_filterbank, clip_value=cfg.eeg_clip_value
-    )
-    log.info("%s EEG model input: %s", condition, X.shape)
-
-    subject_ids = np.zeros(len(target_ids), dtype=np.int64)
-    data = {}
-    for split, idx in split_idx.items():
-        data[f"X_{split}"] = X[idx]
-        data[f"y_{split}"] = y[idx]
-        data[f"id_{split}"] = target_ids[idx]
-        data[f"sub_{split}"] = subject_ids[idx]
-
-    if with_imu:
-        imu_train_n, imu_val_n, imu_test_n, _scaler = normalize_imu_train_only(
-            *(imu[split_idx[split]] for split in SPLITS)
-        )
-        data.update(imu_train=imu_train_n, imu_val=imu_val_n, imu_test=imu_test_n)
-
-    data.update(
-        dim_names=dim_names, n_bands=X.shape[1], n_channels=X.shape[2], out_dim=y.shape[-1]
-    )
-    return data
+    return split_idx
 
 
-def make_loader(data: dict, split: str, batch_size: int, with_imu: bool = False):
-    """Make a DataLoader over one split of a prepared dataset.
+def _normalize_imu(imu, split_idx):
+    """Normalize the IMU of each split with statistics from the training trials."""
+    normalized = normalize_imu_train_only(*(imu[split_idx[name]] for name in SPLITS))
+    return dict(zip(SPLITS, normalized[:3]))
+
+
+@dataclass
+class Loaders:
+    """Training, validation and test loaders over one condition."""
+
+    train: DataLoader
+    val: DataLoader
+    test: DataLoader
+
+
+def make_loader(split: Split, batch_size: int, *, shuffle: bool, with_imu: bool = False):
+    """Make a DataLoader over one split.
 
     Parameters
     ----------
-    data : dict
-        Output of `prepare_dataset`, with the normalized targets added as ``y_<split>_n``.
-    split : {"train", "val", "test"}
-        Which split to load. Only "train" is shuffled.
+    split : Split
+        A split whose `y_norm` has been set.
     batch_size : int
         Trials per batch.
+    shuffle : bool
+        Shuffle the trials in every epoch, as for training.
     with_imu : bool
         Include the IMU signals in each batch.
 
@@ -487,16 +570,32 @@ def make_loader(data: dict, split: str, batch_size: int, with_imu: bool = False)
     -------
     DataLoader
         Batches of (eeg, y, target_id, subject_id), or of (eeg, imu, y, target_id,
-        subject_id) when `with_imu` is True.
+        subject_id) when `with_imu` is True, with ``y`` taken from ``split.y_norm``.
     """
-    tensors = [torch.from_numpy(data[f"X_{split}"]).float()]
+    tensors = [torch.from_numpy(split.X).float()]
     if with_imu:
-        tensors.append(torch.from_numpy(data[f"imu_{split}"]).float())
+        tensors.append(torch.from_numpy(split.imu).float())
     tensors += [
-        torch.from_numpy(data[f"y_{split}_n"]).float(),
-        torch.from_numpy(data[f"id_{split}"]).long(),
-        torch.from_numpy(data[f"sub_{split}"]).long(),
+        torch.from_numpy(split.y_norm).float(),
+        torch.from_numpy(split.target_id).long(),
+        torch.from_numpy(split.subject_id).long(),
     ]
     return DataLoader(
-        TensorDataset(*tensors), batch_size=batch_size, shuffle=split == "train", drop_last=False
+        TensorDataset(*tensors), batch_size=batch_size, shuffle=shuffle, drop_last=False
+    )
+
+
+def make_loaders(condition: PreparedCondition, batch_size: int, *, with_imu: bool = False):
+    """Make the training, validation and test loaders of a condition.
+
+    Only the training loader is shuffled. See `make_loader` for what the batches hold.
+
+    Returns
+    -------
+    Loaders
+    """
+    return Loaders(
+        train=make_loader(condition.train, batch_size, shuffle=True, with_imu=with_imu),
+        val=make_loader(condition.val, batch_size, shuffle=False, with_imu=with_imu),
+        test=make_loader(condition.test, batch_size, shuffle=False, with_imu=with_imu),
     )
