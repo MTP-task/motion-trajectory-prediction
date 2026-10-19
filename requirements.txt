@@ -10,6 +10,7 @@ numpy
 openpyxl
 pandas
 pip
+pytest
 python-dotenv
 ruff
 scikit-learn
