@@ -23,9 +23,9 @@ motion-trajectory-prediction/
         └── step4_model_training_MHA.py
 ```
 ## 0. Collected EEG and label Data (I will upload in NX server later)
-Raw data: 
+Raw data (Subject 8-28, exclude S12,S20,S27):  `Neuromaze\EEG\pipo\MTP_Project\EEG`, `Neuromaze\EEG\pipo\MTP_Project\Camera`
 
-Preprocessed data (using step1-3):  
+Preprocessed data (using step1-3): `Neuromaze\EEG\pipo\MTP_Project\Preprocessed`
 
 ## 1. Experimental program (`src/experimental_program/`)
 
