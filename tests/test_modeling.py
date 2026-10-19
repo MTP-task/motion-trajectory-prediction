@@ -12,6 +12,7 @@ from mtp.modeling.models import (
     EEGOnlyModel,
     FullPrivilegedModel,
     FusionModel,
+    linear_resample_matrix,
 )
 from mtp.modeling.objectives import fusion_zero_imu
 
@@ -110,3 +111,9 @@ def test_eeg_only_and_teacher_student_shapes():
     )
     assert teacher.shape == student.shape == (3, 150, 9)
     assert h_eeg.shape == (3, 64, 150)
+
+
+def test_resample_matrix_matches_interpolate():
+    x = torch.randn(2, 5, 320)
+    expected = torch.nn.functional.interpolate(x, size=150, mode="linear", align_corners=False)
+    assert torch.allclose(x @ linear_resample_matrix(320, 150), expected, atol=1e-6)

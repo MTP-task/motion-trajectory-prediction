@@ -17,201 +17,201 @@ mock,Baseline 0: Time-lagged MLR,ME_test,linear,elbow_Vz,-0.02161793111025709,0.
 mock,Baseline 0: Time-lagged MLR,ME_test,linear,wrist_Vx,-0.02855497229061126,1.027124047279358,0.8096727728843689
 mock,Baseline 0: Time-lagged MLR,ME_test,linear,wrist_Vy,-0.04092759773031721,1.011312365531921,0.8076008558273315
 mock,Baseline 0: Time-lagged MLR,ME_test,linear,wrist_Vz,-0.004327867601360474,1.020313739776611,0.8095852136611938
-mock,Baseline 1: MI-only EEG,MI_test,EEG_only,shoulder_Vx,-0.01693623308910258,0.9966158866882324,0.7975766062736511
-mock,Baseline 1: MI-only EEG,MI_test,EEG_only,shoulder_Vy,0.03631817120400278,1.014575600624084,0.7969512343406677
-mock,Baseline 1: MI-only EEG,MI_test,EEG_only,shoulder_Vz,-0.0009745245607809388,0.9982989430427551,0.7939257025718689
-mock,Baseline 1: MI-only EEG,MI_test,EEG_only,elbow_Vx,0.0286590154001506,0.9761492609977722,0.7836021184921265
-mock,Baseline 1: MI-only EEG,MI_test,EEG_only,elbow_Vy,-0.009247647915528581,1.006981730461121,0.79714035987854
-mock,Baseline 1: MI-only EEG,MI_test,EEG_only,elbow_Vz,-0.01107269804725436,1.025019407272339,0.8101503252983093
-mock,Baseline 1: MI-only EEG,MI_test,EEG_only,wrist_Vx,0.03818566215992042,1.021942019462585,0.8155311942100525
-mock,Baseline 1: MI-only EEG,MI_test,EEG_only,wrist_Vy,-0.01540564580027816,1.005898952484131,0.8021851181983948
-mock,Baseline 1: MI-only EEG,MI_test,EEG_only,wrist_Vz,-0.003969984111202788,1.01768946647644,0.8154486417770386
-mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,shoulder_Vx,-0.03975822358863684,1.011186480522156,0.8062149286270142
-mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,shoulder_Vy,-0.02247105615788718,0.9913715720176697,0.7955768704414368
-mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,shoulder_Vz,0.0531629122493166,0.9908614158630371,0.7862390875816345
-mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,elbow_Vx,-0.03748256678715093,1.032963991165161,0.8281832933425903
-mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,elbow_Vy,0.01313244834458508,1.020659685134888,0.8191019892692566
-mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,elbow_Vz,-0.01324359831569846,0.9677432775497437,0.7578988671302795
-mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,wrist_Vx,0.01383349860286971,1.016562342643738,0.799115777015686
-mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,wrist_Vy,0.01509565295916949,0.991256594657898,0.7900413274765015
-mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,wrist_Vz,0.04288094668081499,1.015745520591736,0.8005861639976501
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,shoulder_Vx,0.01793776819277285,1.009369373321533,0.8054248094558716
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,shoulder_Vy,-0.02240596998952446,0.9867966175079346,0.7906135320663452
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,shoulder_Vz,0.05478098253807144,0.9907592535018921,0.7861291766166687
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,elbow_Vx,-0.03757930171760911,1.036848187446594,0.8335201740264893
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,elbow_Vy,0.03056207299194428,1.018660664558411,0.8203630447387695
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,elbow_Vz,0.00809606297334324,0.969740092754364,0.7598758935928345
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,wrist_Vx,-0.01019312767163391,1.012433052062988,0.7956081628799438
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,wrist_Vy,0.03613736327066425,0.9895315170288086,0.789269745349884
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,wrist_Vz,0.008822304381433624,1.009057641029358,0.7959607839584351
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,shoulder_Vx,-0.004390382914306067,0.9993732571601868,0.797166109085083
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,shoulder_Vy,-0.00600269070607193,1.011711239814758,0.7985676527023315
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,shoulder_Vz,-0.005350146318640898,0.9999189376831055,0.7953999042510986
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,elbow_Vx,-0.02265057851522181,0.9810349345207214,0.7864269614219666
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,elbow_Vy,0.01818970383164912,1.004835844039917,0.7951605916023254
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,elbow_Vz,-0.01051881920585783,1.029485940933228,0.813219428062439
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,wrist_Vx,0.01864465380130252,1.014967322349548,0.813173234462738
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,wrist_Vy,0.01903172693527557,1.003169536590576,0.7970730066299438
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,wrist_Vz,-0.03392077716869071,1.011569023132324,0.8124615550041199
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,shoulder_Vx,0.007274827122813838,1.012029767036438,0.8073267340660095
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,shoulder_Vy,-0.01755439936708131,0.9884480834007263,0.7916333675384521
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,shoulder_Vz,0.03611335430298517,0.9928686618804932,0.7872496843338013
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,elbow_Vx,-0.03756884312851425,1.035162806510925,0.8321958780288696
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,elbow_Vy,0.004929179409864077,1.021583199501038,0.8243423700332642
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,elbow_Vz,-0.005531499250299919,0.972562849521637,0.7631392478942871
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,wrist_Vx,-0.03134698609682096,1.01462721824646,0.7976351380348206
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,wrist_Vy,0.01645247127361695,0.9912343621253967,0.7910671234130859
-mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,wrist_Vz,-0.005653701614419497,1.009432792663574,0.7983477711677551
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,shoulder_Vx,-0.0099761966001904,1.010792016983032,0.8052262663841248
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,shoulder_Vy,-0.02903175672067385,0.9851192235946655,0.7896459102630615
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,shoulder_Vz,-0.02250129305737519,0.9965900182723999,0.7894099354743958
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,elbow_Vx,-0.008035480717223547,1.026543378829956,0.8221431970596313
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,elbow_Vy,0.04518800886297661,1.017854928970337,0.8184767365455627
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,elbow_Vz,-0.02057708137235745,0.9695488810539246,0.7576989531517029
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,wrist_Vx,0.005988285232174839,1.010942578315735,0.7955865263938904
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,wrist_Vy,0.03058403143911651,0.9916595220565796,0.7898985743522644
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,wrist_Vz,0.003801654973581882,1.009206056594849,0.7970739603042603
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,shoulder_Vx,-0.008019907513131424,0.9963245987892151,0.7966871857643127
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,shoulder_Vy,-0.07500054304042221,1.009160041809082,0.7980138063430786
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,shoulder_Vz,-0.006270802125025042,0.9976423382759094,0.7933199405670166
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,elbow_Vx,-0.007618092718414144,0.9760808348655701,0.7844138741493225
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,elbow_Vy,0.006047921630338828,1.006411671638489,0.7957400679588318
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,elbow_Vz,0.03306092701454365,1.024466037750244,0.8088059425354004
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,wrist_Vx,-0.0003442979993804567,1.01426088809967,0.8127214312553406
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,wrist_Vy,-0.02976719156184866,1.006016850471497,0.803639829158783
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,wrist_Vz,0.008986037998099775,1.011489629745483,0.8110305666923523
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,shoulder_Vx,0.00930581710723942,1.009503722190857,0.8060113787651062
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,shoulder_Vy,-0.03486793361957696,0.9843356609344482,0.7898097634315491
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,shoulder_Vz,0.02475549829031851,0.992702841758728,0.7862520813941956
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,elbow_Vx,0.04260481982297314,1.026209473609924,0.8225300312042236
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,elbow_Vy,0.04650106866737184,1.019315242767334,0.8171395659446716
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,elbow_Vz,-0.07313596815882982,0.9718745946884155,0.7599746584892273
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,wrist_Vx,0.02459697663298328,1.010836243629456,0.7964430451393127
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,wrist_Vy,0.04932655958321507,0.9894151091575623,0.788506805896759
-mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,wrist_Vz,-0.03103257315637724,1.013127565383911,0.7991105318069458
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,shoulder_Vx,-0.01196001586404774,1.010944485664368,0.8056780695915222
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,shoulder_Vy,-0.007557182460303999,0.9839799404144287,0.7894562482833862
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,shoulder_Vz,0.01025141546337375,0.9929830431938171,0.7854428887367249
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,elbow_Vx,0.00414163224592711,1.024955987930298,0.8222163319587708
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,elbow_Vy,-0.01243346912481548,1.020314931869507,0.8194471597671509
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,elbow_Vz,-0.03355939448191457,0.9734431505203247,0.7617961764335632
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,wrist_Vx,0.01666152449103133,1.00973379611969,0.7959484457969666
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,wrist_Vy,0.02073982205002719,0.988986611366272,0.7895750999450684
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,wrist_Vz,0.02115074900436877,1.006454467773438,0.7992133498191833
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,shoulder_Vx,0.00400542238527623,1.015297532081604,0.8061968088150024
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,shoulder_Vy,-0.01512952846968964,0.985034704208374,0.7900163531303406
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,shoulder_Vz,-0.02968872102541162,0.9929169416427612,0.7873926162719727
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,elbow_Vx,-0.02796209337486077,1.02888810634613,0.8246930241584778
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,elbow_Vy,-0.01703518487629128,1.020158171653748,0.8191317915916443
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,elbow_Vz,-0.02954408636795934,0.9678014516830444,0.7572587728500366
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,wrist_Vx,0.01588387197862491,1.009296536445618,0.7938030958175659
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,wrist_Vy,0.0003323173164129852,0.989790141582489,0.7896898984909058
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,wrist_Vz,-0.06154631871179189,1.007639050483704,0.7989934682846069
-mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,shoulder_Vx,0.01353381764951562,1.002210974693298,0.8019096255302429
-mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,shoulder_Vy,-0.03357685183616279,1.009710788726807,0.7987154722213745
-mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,shoulder_Vz,0.04272036309907898,0.9981487393379211,0.7934938669204712
-mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,elbow_Vx,0.04414366931160765,0.9759090542793274,0.7829917073249817
-mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,elbow_Vy,-0.02076490539394561,1.007208228111267,0.7964879870414734
-mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,elbow_Vz,0.01492908075887197,1.023822426795959,0.8086726665496826
-mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,wrist_Vx,-0.006653445515311664,1.01452648639679,0.8120266199111938
-mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,wrist_Vy,-0.07247252206785867,1.004812002182007,0.8013376593589783
-mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,wrist_Vz,0.01198777380072184,1.006219029426575,0.8071364164352417
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,shoulder_Vx,-0.002829542855917997,1.016255259513855,0.8066569566726685
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,shoulder_Vy,-0.008162190762490223,0.9866518378257751,0.7914651036262512
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,shoulder_Vz,-0.03085965178104785,0.993803858757019,0.7884034514427185
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,elbow_Vx,-0.0300013273961297,1.032992959022522,0.827885627746582
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,elbow_Vy,-0.01268496273700319,1.021421670913696,0.8201989531517029
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,elbow_Vz,-0.02366168336668905,0.967981219291687,0.7572708129882812
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,wrist_Vx,0.02825349886278076,1.009350180625916,0.7937405109405518
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,wrist_Vy,-0.002338360280968757,0.9898149967193604,0.7901096940040588
-mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,wrist_Vz,-0.04706746297657539,1.008358478546143,0.7993521094322205
-mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,shoulder_Vx,-0.04829454591150532,1.012731671333313,0.8075531721115112
-mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,shoulder_Vy,0.01669393742980039,0.9847681522369385,0.7893677949905396
-mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,shoulder_Vz,0.0105525483942604,0.993800938129425,0.7902544736862183
-mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,elbow_Vx,-0.002138882597269296,1.052463054656982,0.8446929454803467
-mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,elbow_Vy,0.02532431962939623,1.022680044174194,0.8229438066482544
-mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,elbow_Vz,0.02505836846842704,0.9664242267608643,0.7558367848396301
-mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,wrist_Vx,0.00919206815738839,1.009951829910278,0.7965972423553467
-mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,wrist_Vy,0.04595735014332734,0.9877578616142273,0.7882668375968933
-mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,wrist_Vz,0.05204315714056331,1.005463838577271,0.7957297563552856
-mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,shoulder_Vx,0.05932003071830854,1.008398532867432,0.8043641448020935
-mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,shoulder_Vy,0.03422320737184338,0.9823169112205505,0.7865993976593018
-mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,shoulder_Vz,-0.00888304987995466,0.9939166903495789,0.7898193597793579
-mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,elbow_Vx,0.01692136855289173,1.027527809143066,0.8256562948226929
-mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,elbow_Vy,-0.003367728769930562,1.023689985275269,0.8204749822616577
-mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,elbow_Vz,0.05139392742305396,0.9741535782814026,0.7640340328216553
-mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,wrist_Vx,-0.007817370814282215,1.017703175544739,0.8006771802902222
-mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,wrist_Vy,0.02333884546823589,0.9892428517341614,0.7894365191459656
-mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,wrist_Vz,-0.01125785803377124,1.010199308395386,0.7981087565422058
-mock,Baseline 5: Full model,MI_test,student_EEG_only,shoulder_Vx,0.001027189586415238,0.997458815574646,0.7968701124191284
-mock,Baseline 5: Full model,MI_test,student_EEG_only,shoulder_Vy,-0.02543124942209086,1.00936222076416,0.7973426580429077
-mock,Baseline 5: Full model,MI_test,student_EEG_only,shoulder_Vz,0.03210408656407954,0.9980653524398804,0.794635534286499
-mock,Baseline 5: Full model,MI_test,student_EEG_only,elbow_Vx,-0.02990302485665313,0.9791117310523987,0.7859593033790588
-mock,Baseline 5: Full model,MI_test,student_EEG_only,elbow_Vy,0.01629740333389138,1.008070230484009,0.7964522242546082
-mock,Baseline 5: Full model,MI_test,student_EEG_only,elbow_Vz,-0.06568462864466554,1.036776661872864,0.8201575875282288
-mock,Baseline 5: Full model,MI_test,student_EEG_only,wrist_Vx,-0.01377190303264925,1.024277806282043,0.8183537721633911
-mock,Baseline 5: Full model,MI_test,student_EEG_only,wrist_Vy,-0.002996114855551148,1.00132429599762,0.7972973585128784
-mock,Baseline 5: Full model,MI_test,student_EEG_only,wrist_Vz,0.0453836013462827,1.008714556694031,0.8083657622337341
-mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,shoulder_Vx,0.05930350408855768,1.008388876914978,0.8043524026870728
-mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,shoulder_Vy,0.02735487719289388,0.9831268191337585,0.787286639213562
-mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,shoulder_Vz,-0.006407578834169673,0.9942206144332886,0.7897185683250427
-mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,elbow_Vx,0.002655978378178072,1.03121018409729,0.8293510675430298
-mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,elbow_Vy,-0.002263937548555621,1.02303421497345,0.8201098442077637
-mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,elbow_Vz,0.05037726377027128,0.9740086793899536,0.7640207409858704
-mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,wrist_Vx,-0.004101389674427697,1.017646551132202,0.8007228374481201
-mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,wrist_Vy,0.009671496620191374,0.9897892475128174,0.7896610498428345
-mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,wrist_Vz,-0.007652815883301865,1.011174201965332,0.7987312078475952
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,shoulder_Vx,-0.003628578950478002,1.027859807014465,0.8200674653053284
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,shoulder_Vy,-0.0187628823160449,1.003760457038879,0.8085756897926331
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,shoulder_Vz,-0.01372354153897559,1.033854365348816,0.818507969379425
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,elbow_Vx,0.007177851697698266,1.0341796875,0.8253452777862549
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,elbow_Vy,0.001065560048227056,1.040524840354919,0.8394198417663574
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,elbow_Vz,0.01644745951587909,1.015633702278137,0.8005540370941162
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,wrist_Vx,0.01844099088762382,1.017746567726135,0.7990065217018127
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,wrist_Vy,0.02545360715384909,0.9920545816421509,0.7884581089019775
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,wrist_Vz,0.01623908674569204,1.017891049385071,0.8099716901779175
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,shoulder_Vx,-0.01937824805167177,1.001170635223389,0.7998820543289185
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,shoulder_Vy,-0.02736808521556462,1.016886115074158,0.8061941266059875
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,shoulder_Vz,-0.01124265848286976,1.02651035785675,0.821216344833374
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,elbow_Vx,0.03977396869539314,0.9789413809776306,0.7837481498718262
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,elbow_Vy,-0.08484697410019008,1.01439380645752,0.8027459979057312
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,elbow_Vz,0.01307828778548125,1.071499228477478,0.8537278175354004
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,wrist_Vx,-0.03712958402382543,1.022769451141357,0.8141345977783203
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,wrist_Vy,0.02767978047652759,1.00010871887207,0.796812117099762
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,wrist_Vz,-0.01596711072791496,1.023042440414429,0.8193787932395935
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,shoulder_Vx,-0.04474774321876287,1.016003370285034,0.8115576505661011
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,shoulder_Vy,-0.01628103986214059,0.9950494170188904,0.799440860748291
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,shoulder_Vz,-0.02477713984513836,1.03191077709198,0.8151776790618896
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,elbow_Vx,0.004124851294807194,1.022797703742981,0.81977379322052
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,elbow_Vy,0.004933381270521895,1.027565956115723,0.8281272649765015
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,elbow_Vz,0.002160591930828999,1.019602537155151,0.8051512241363525
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,wrist_Vx,0.02713921162177007,1.013032197952271,0.7943375110626221
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,wrist_Vy,0.02114084276806184,0.9890299439430237,0.7898623943328857
-mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,wrist_Vz,0.01330484582910775,1.02276086807251,0.8162069916725159
-mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,shoulder_Vx,-0.04504947810441905,1.015126347541809,0.8063632845878601
-mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,shoulder_Vy,-0.03873874792613329,0.9876198768615723,0.7917405962944031
-mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,shoulder_Vz,-0.02286817654857963,0.9993079304695129,0.7927444577217102
-mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,elbow_Vx,0.01783553172292515,1.024429321289062,0.8227091431617737
-mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,elbow_Vy,-0.01164280044693331,1.022185206413269,0.8231272101402283
-mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,elbow_Vz,-0.04516784025956884,0.9894202351570129,0.7756755948066711
-mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,wrist_Vx,0.007931835030698156,1.011459112167358,0.7975599765777588
-mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,wrist_Vy,0.05541863833003966,0.9936169981956482,0.7948240041732788
-mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,wrist_Vz,-0.01780881062333177,1.021639227867126,0.8058409094810486
-mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,shoulder_Vx,-0.01911646195023042,0.9978335499763489,0.7971439361572266
-mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,shoulder_Vy,-0.0609812852767586,1.011318445205688,0.7991456985473633
-mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,shoulder_Vz,-0.06503854777488362,1.008844494819641,0.8043398261070251
-mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,elbow_Vx,0.04412062390008369,0.9738258719444275,0.7819529175758362
-mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,elbow_Vy,-0.001550146666877958,1.006160497665405,0.7945752739906311
-mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,elbow_Vz,-0.04200479544614832,1.046859622001648,0.8312361836433411
-mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,wrist_Vx,-0.01959538241709976,1.01601243019104,0.8143103122711182
-mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,wrist_Vy,-0.03721131906941221,1.005923628807068,0.8017573952674866
-mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,wrist_Vz,0.01598628793434156,1.024212002754211,0.8205026984214783
-mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,shoulder_Vx,-0.02311773777633935,1.011925578117371,0.8061376810073853
-mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,shoulder_Vy,-0.03898829522490945,0.9870110154151917,0.7923052310943604
-mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,shoulder_Vz,-0.004152800237035875,1.003695964813232,0.7962764501571655
-mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,elbow_Vx,0.04269382701974685,1.024993658065796,0.8230249881744385
-mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,elbow_Vy,-0.002689860930947289,1.021788597106934,0.820337176322937
-mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,elbow_Vz,-0.03755694891237096,0.9920680522918701,0.7788313031196594
-mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,wrist_Vx,0.01029107566865361,1.010871887207031,0.7959405779838562
-mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,wrist_Vy,0.05259269873429451,0.9912068843841553,0.7928822636604309
-mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,wrist_Vz,-0.02036483062768762,1.026049613952637,0.8080562353134155
+mock,Baseline 1: MI-only EEG,MI_test,EEG_only,shoulder_Vx,-0.01693741292466766,0.9966158866882324,0.7975782155990601
+mock,Baseline 1: MI-only EEG,MI_test,EEG_only,shoulder_Vy,0.03632051563489553,1.01457417011261,0.7969508767127991
+mock,Baseline 1: MI-only EEG,MI_test,EEG_only,shoulder_Vz,-0.000973156836403489,0.9982986450195312,0.7939253449440002
+mock,Baseline 1: MI-only EEG,MI_test,EEG_only,elbow_Vx,0.02865993263577095,0.9761504530906677,0.783604085445404
+mock,Baseline 1: MI-only EEG,MI_test,EEG_only,elbow_Vy,-0.009249935562283962,1.006982803344727,0.7971414923667908
+mock,Baseline 1: MI-only EEG,MI_test,EEG_only,elbow_Vz,-0.01107367150287495,1.025020122528076,0.8101500868797302
+mock,Baseline 1: MI-only EEG,MI_test,EEG_only,wrist_Vx,0.03818458913596281,1.021941304206848,0.8155316114425659
+mock,Baseline 1: MI-only EEG,MI_test,EEG_only,wrist_Vy,-0.01540556681837984,1.005898475646973,0.8021846413612366
+mock,Baseline 1: MI-only EEG,MI_test,EEG_only,wrist_Vz,-0.00396951119726762,1.017691850662231,0.8154510259628296
+mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,shoulder_Vx,-0.03975577055027794,1.011187195777893,0.8062156438827515
+mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,shoulder_Vy,-0.02246965236023966,0.9913702011108398,0.7955768704414368
+mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,shoulder_Vz,0.05316545667757966,0.9908615350723267,0.786238968372345
+mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,elbow_Vx,-0.03748224277595841,1.032967090606689,0.8281849026679993
+mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,elbow_Vy,0.0131320041828424,1.020660519599915,0.8191021084785461
+mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,elbow_Vz,-0.01324607998683823,0.9677435159683228,0.757899820804596
+mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,wrist_Vx,0.0138326237499424,1.016561508178711,0.7991154789924622
+mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,wrist_Vy,0.01509526412056115,0.9912562370300293,0.7900416851043701
+mock,Baseline 1: MI-only EEG,ME_test_final_model,EEG_only,wrist_Vz,0.04288046505973592,1.015747785568237,0.8005871176719666
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,shoulder_Vx,0.01793372696508721,1.009371042251587,0.8054283261299133
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,shoulder_Vy,-0.0224055257448291,0.9867936372756958,0.7906104326248169
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,shoulder_Vz,0.05481078439490606,0.9907576441764832,0.7861290574073792
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,elbow_Vx,-0.03754780356008418,1.036844730377197,0.8335177898406982
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,elbow_Vy,0.03053814807027481,1.0186607837677,0.8203607797622681
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,elbow_Vz,0.008090735418886693,0.9697479009628296,0.7598837018013
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,wrist_Vx,-0.01020170061738137,1.01243531703949,0.7956093549728394
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,wrist_Vy,0.03612841522364409,0.9895365238189697,0.7892738580703735
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_pretrain,EEG_only,wrist_Vz,0.008799077099858391,1.009067535400391,0.7959641218185425
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,shoulder_Vx,-0.004397544372608198,0.9993747472763062,0.797167181968689
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,shoulder_Vy,-0.006004078395624136,1.011712074279785,0.7985678315162659
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,shoulder_Vz,-0.00535273728789008,0.9999184608459473,0.7953993082046509
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,elbow_Vx,-0.02264814241702615,0.9810346961021423,0.7864266037940979
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,elbow_Vy,0.01818511555479763,1.004837870597839,0.7951615452766418
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,elbow_Vz,-0.01051424343518989,1.029486894607544,0.8132205605506897
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,wrist_Vx,0.01863162592700406,1.014968037605286,0.8131732940673828
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,wrist_Vy,0.01902791884575117,1.00317108631134,0.797075629234314
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,MI_test,EEG_only,wrist_Vz,-0.03391013490485448,1.011568188667297,0.8124616146087646
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,shoulder_Vx,0.007270943944140302,1.012030482292175,0.8073283433914185
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,shoulder_Vy,-0.01754823069913804,0.9884482026100159,0.7916334867477417
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,shoulder_Vz,0.03612155312385688,0.9928672909736633,0.7872487306594849
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,elbow_Vx,-0.03755880163850272,1.035160541534424,0.8321936726570129
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,elbow_Vy,0.004922936450429466,1.021584033966064,0.8243405818939209
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,elbow_Vz,-0.005531727487531304,0.9725639820098877,0.7631404995918274
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,wrist_Vx,-0.03134539695754038,1.014626860618591,0.7976346611976624
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,wrist_Vy,0.01644794498169565,0.9912354350090027,0.7910679578781128
+mock,Baseline 2: ME EEG pretrain + MI fine-tune,ME_test_after_MI_finetune,EEG_only,wrist_Vz,-0.005660154647028526,1.009433507919312,0.7983478903770447
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,shoulder_Vx,-0.009970753607335502,1.010792255401611,0.8052265644073486
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,shoulder_Vy,-0.0290210183473266,0.9851186871528625,0.7896456122398376
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,shoulder_Vz,-0.02250871775707727,0.9965871572494507,0.7894091606140137
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,elbow_Vx,-0.008036761960695263,1.026541352272034,0.8221403956413269
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,elbow_Vy,0.04520207784588742,1.017854571342468,0.8184760808944702
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,elbow_Vz,-0.02057136857101779,0.9695495367050171,0.7576996088027954
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,wrist_Vx,0.005999331942624303,1.010942220687866,0.7955858111381531
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,wrist_Vy,0.03058002152724002,0.991665780544281,0.7899025678634644
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_pretrain,EEG_IMU_fusion,wrist_Vz,0.003794632600049937,1.009201884269714,0.7970735430717468
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,shoulder_Vx,-0.008043132621963954,0.9963263869285583,0.7966896295547485
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,shoulder_Vy,-0.07498652522074942,1.009160280227661,0.7980114817619324
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,shoulder_Vz,-0.006268570374287928,0.9976420998573303,0.7933132648468018
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,elbow_Vx,-0.007646392908567057,0.9760802388191223,0.7844130992889404
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,elbow_Vy,0.006065557160276751,1.006422281265259,0.7957482933998108
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,elbow_Vz,0.03302057554890118,1.024468541145325,0.8088078498840332
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,wrist_Vx,-0.0003581601891060597,1.014256238937378,0.8127139806747437
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,wrist_Vy,-0.02978452113009071,1.006011128425598,0.8036341071128845
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",MI_test,EEG_zeroIMU_fusion,wrist_Vz,0.009006901582810471,1.011482715606689,0.8110259175300598
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,shoulder_Vx,0.00933125751325467,1.009504914283752,0.8060141801834106
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,shoulder_Vy,-0.03490150457251277,0.9843361377716064,0.7898100018501282
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,shoulder_Vz,0.02474876956753403,0.992691159248352,0.7862505316734314
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,elbow_Vx,0.04261767934230883,1.026200413703918,0.8225241303443909
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,elbow_Vy,0.04651656331303933,1.019323706626892,0.8171459436416626
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,elbow_Vz,-0.07317359479978958,0.9718771576881409,0.7599779367446899
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,wrist_Vx,0.02461640502476032,1.010826587677002,0.7964296340942383
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,wrist_Vy,0.04932654273971446,0.9894103407859802,0.7885044813156128
+mock,"Baseline 3: ME EEG+IMU pretrain, no distill/proto",ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_fusion,wrist_Vz,-0.03102453117566373,1.013121724128723,0.7991092801094055
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,shoulder_Vx,-0.01196436560790789,1.010942220687866,0.8056756854057312
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,shoulder_Vy,-0.007561402209754744,0.9839800596237183,0.7894565463066101
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,shoulder_Vz,0.01025377393525098,0.9929836392402649,0.785442054271698
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,elbow_Vx,0.004132324426849466,1.024955987930298,0.8222160935401917
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,elbow_Vy,-0.01242697400318739,1.020316362380981,0.8194472789764404
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,elbow_Vz,-0.03356139110746672,0.9734484553337097,0.76180100440979
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,wrist_Vx,0.01666535516068854,1.009733438491821,0.7959475517272949
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,wrist_Vy,0.02074481733378462,0.9889864921569824,0.7895759344100952
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,teacher_EEG_IMU,wrist_Vz,0.02115202345639429,1.0064537525177,0.7992135286331177
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,shoulder_Vx,0.003978320184443813,1.015302419662476,0.8062009215354919
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,shoulder_Vy,-0.01513539617634039,0.9850383400917053,0.7900190949440002
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,shoulder_Vz,-0.0297178463494169,0.9929184913635254,0.7873970866203308
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,elbow_Vx,-0.0279558496761565,1.028892874717712,0.8246964812278748
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,elbow_Vy,-0.01701356200814043,1.02016294002533,0.8191332221031189
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,elbow_Vz,-0.02951786970868208,0.9677990674972534,0.7572565674781799
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,wrist_Vx,0.01587779113932329,1.009295225143433,0.7938039898872375
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,wrist_Vy,0.0003288451213220201,0.9897932410240173,0.7896895408630371
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_pretrain,student_EEG_only,wrist_Vz,-0.06156493550305524,1.007639527320862,0.798993706703186
+mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,shoulder_Vx,0.01355693360906422,1.002216577529907,0.8019153475761414
+mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,shoulder_Vy,-0.0335788522032892,1.009716033935547,0.7987220883369446
+mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,shoulder_Vz,0.04272331539432077,0.9981539845466614,0.7934971451759338
+mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,elbow_Vx,0.04413423501584312,0.9759094715118408,0.782991886138916
+mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,elbow_Vy,-0.02075634538536012,1.007209420204163,0.7964898943901062
+mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,elbow_Vz,0.01492405795515797,1.023822903633118,0.8086726069450378
+mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,wrist_Vx,-0.006643060247728858,1.014521837234497,0.8120236396789551
+mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,wrist_Vy,-0.07246888963986116,1.004817128181458,0.8013435006141663
+mock,Baseline 4: ME distillation + MI fine-tune,MI_test,student_EEG_only,wrist_Vz,0.01198625454101395,1.006219506263733,0.8071370720863342
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,shoulder_Vx,-0.002850321364022492,1.016262173652649,0.8066614866256714
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,shoulder_Vy,-0.008167750717511735,0.9866584539413452,0.7914713025093079
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,shoulder_Vz,-0.03087352305388654,0.9938059449195862,0.7884074449539185
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,elbow_Vx,-0.03000020867509474,1.032992839813232,0.8278852701187134
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,elbow_Vy,-0.01267491085878557,1.021422982215881,0.8202000260353088
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,elbow_Vz,-0.02364508287322481,0.9679800868034363,0.7572696805000305
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,wrist_Vx,0.02824901900727974,1.009347558021545,0.7937387228012085
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,wrist_Vy,-0.002346747200916428,0.9898176193237305,0.7901103496551514
+mock,Baseline 4: ME distillation + MI fine-tune,ME_test_after_MI_finetune,student_EEG_only,wrist_Vz,-0.04707868801374598,1.008358955383301,0.7993522882461548
+mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,shoulder_Vx,-0.04831218726606076,1.01273512840271,0.8075549602508545
+mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,shoulder_Vy,0.01667341434897393,0.9847723245620728,0.7893723249435425
+mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,shoulder_Vz,0.01057470912467399,0.9937977194786072,0.7902528643608093
+mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,elbow_Vx,-0.002112414864086339,1.052456259727478,0.8446863889694214
+mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,elbow_Vy,0.02536332732112675,1.02267599105835,0.8229401707649231
+mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,elbow_Vz,0.02503616783376244,0.9664269089698792,0.7558396458625793
+mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,wrist_Vx,0.00914115684021352,1.009954333305359,0.7966011762619019
+mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,wrist_Vy,0.04597697484485751,0.987758457660675,0.7882705330848694
+mock,Baseline 5: Full model,ME_test_after_pretrain,teacher_lag_EEG_IMU,wrist_Vz,0.05203505870270207,1.005461096763611,0.7957306504249573
+mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,shoulder_Vx,0.05936032849226552,1.008397698402405,0.8043645024299622
+mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,shoulder_Vy,0.03417414192853351,0.9823201894760132,0.7866023182868958
+mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,shoulder_Vz,-0.008882832261888522,0.9939154386520386,0.7898169755935669
+mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,elbow_Vx,0.01693048045853928,1.027494072914124,0.8256270289421082
+mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,elbow_Vy,-0.003395507127256092,1.023696899414062,0.8204779624938965
+mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,elbow_Vz,0.0513852579991252,0.974157989025116,0.7640363574028015
+mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,wrist_Vx,-0.007811804734610324,1.017752528190613,0.8007200956344604
+mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,wrist_Vy,0.02337441209332068,0.9892458319664001,0.7894394993782043
+mock,Baseline 5: Full model,ME_test_after_pretrain,student_EEG_only,wrist_Vz,-0.01122400653541901,1.010206341743469,0.798109769821167
+mock,Baseline 5: Full model,MI_test,student_EEG_only,shoulder_Vx,0.001030662171721516,0.9974596500396729,0.7968717217445374
+mock,Baseline 5: Full model,MI_test,student_EEG_only,shoulder_Vy,-0.02544427742347275,1.009363532066345,0.7973437309265137
+mock,Baseline 5: Full model,MI_test,student_EEG_only,shoulder_Vz,0.03213702872891074,0.9980611205101013,0.7946332693099976
+mock,Baseline 5: Full model,MI_test,student_EEG_only,elbow_Vx,-0.02988733885751084,0.979099690914154,0.7859481573104858
+mock,Baseline 5: Full model,MI_test,student_EEG_only,elbow_Vy,0.01629249262278792,1.008074998855591,0.7964548468589783
+mock,Baseline 5: Full model,MI_test,student_EEG_only,elbow_Vz,-0.06572284384020725,1.036780953407288,0.8201617002487183
+mock,Baseline 5: Full model,MI_test,student_EEG_only,wrist_Vx,-0.01376511965890004,1.024311304092407,0.8183764219284058
+mock,Baseline 5: Full model,MI_test,student_EEG_only,wrist_Vy,-0.003043586061107323,1.001326441764832,0.797299861907959
+mock,Baseline 5: Full model,MI_test,student_EEG_only,wrist_Vz,0.04538126668422141,1.008720278739929,0.8083692193031311
+mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,shoulder_Vx,0.05933410652437987,1.008388161659241,0.8043526411056519
+mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,shoulder_Vy,0.02731388471136651,0.9831299781799316,0.7872893810272217
+mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,shoulder_Vz,-0.006399027734860542,0.9942193627357483,0.789717435836792
+mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,elbow_Vx,0.002660969595809944,1.031184077262878,0.8293266296386719
+mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,elbow_Vy,-0.002291590985312589,1.023039102554321,0.8201122879981995
+mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,elbow_Vz,0.05037466759822902,0.9740108847618103,0.764024019241333
+mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,wrist_Vx,-0.004110813227621364,1.017675876617432,0.8007484674453735
+mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,wrist_Vy,0.009662780384623003,0.9897914528846741,0.7896634340286255
+mock,Baseline 5: Full model,ME_test_after_MI_finetune,student_EEG_only,wrist_Vz,-0.007592826172897004,1.011176824569702,0.7987298369407654
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,shoulder_Vx,-0.003596777224007201,1.027758121490479,0.8199633359909058
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,shoulder_Vy,-0.01878362173382839,1.003764986991882,0.8085790276527405
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,shoulder_Vz,-0.01367962820541494,1.033988952636719,0.8186182379722595
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,elbow_Vx,0.00725043008849334,1.034183382987976,0.8253520131111145
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,elbow_Vy,0.001107727377989257,1.040605425834656,0.8394951224327087
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,elbow_Vz,0.0164262699479134,1.015592336654663,0.8005179762840271
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,wrist_Vx,0.01840926589511305,1.01776111125946,0.7990209460258484
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,wrist_Vy,0.02546343676270863,0.9920545816421509,0.7884563207626343
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_pretrain,EEG_IMU_BiCMHA_fusion,wrist_Vz,0.01626925908694835,1.017922878265381,0.810000479221344
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,shoulder_Vx,-0.01939057844537109,1.001138925552368,0.7998532056808472
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,shoulder_Vy,-0.02756357277389672,1.016869425773621,0.8061730265617371
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,shoulder_Vz,-0.01108892271395082,1.02657163143158,0.8212717175483704
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,elbow_Vx,0.03978067134273916,0.9789502620697021,0.7837563157081604
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,elbow_Vy,-0.08494472895043047,1.01439893245697,0.8027534484863281
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,elbow_Vz,0.01311154519991771,1.07168173789978,0.8538945317268372
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,wrist_Vx,-0.03718555730416011,1.022769331932068,0.814134955406189
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,wrist_Vy,0.02765784203920275,1.0001460313797,0.7968658208847046
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,MI_test,EEG_zeroIMU_BiCMHA_fusion,wrist_Vz,-0.01595841768562308,1.022947311401367,0.8193045258522034
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,shoulder_Vx,-0.0446079896504472,1.01596212387085,0.8115135431289673
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,shoulder_Vy,-0.01626193552036355,0.9950115084648132,0.7994099259376526
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,shoulder_Vz,-0.02468948845272033,1.031987071037292,0.8152341246604919
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,elbow_Vx,0.004218521145920999,1.022795915603638,0.8197723627090454
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,elbow_Vy,0.004882785317675825,1.027570128440857,0.8281343579292297
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,elbow_Vz,0.002181325382375394,1.019793033599854,0.8053299188613892
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,wrist_Vx,0.0270823101193283,1.013032197952271,0.7943416833877563
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,wrist_Vy,0.02112288970217937,0.9890303611755371,0.7898603677749634
+mock,Baseline 6: Bidirectional cross-modal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_BiCMHA_fusion,wrist_Vz,0.01328993873249912,1.02266252040863,0.8161032199859619
+mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,shoulder_Vx,-0.04505482214513395,1.015119910240173,0.8063607811927795
+mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,shoulder_Vy,-0.03873569434010817,0.9876172542572021,0.7917366623878479
+mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,shoulder_Vz,-0.02287666276414091,0.9993075728416443,0.7927448153495789
+mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,elbow_Vx,0.01784286395305998,1.024433612823486,0.8227145671844482
+mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,elbow_Vy,-0.01161379547063315,1.022186875343323,0.8231358528137207
+mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,elbow_Vz,-0.04518631747891615,0.9894232749938965,0.7756781578063965
+mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,wrist_Vx,0.007924152200124272,1.011463522911072,0.7975661158561707
+mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,wrist_Vy,0.055398751779115,0.9935978055000305,0.7948060035705566
+mock,Baseline 7: Normal MHA fusion,ME_test_after_pretrain,EEG_IMU_NormalMHA_fusion,wrist_Vz,-0.01780053377761023,1.021650314331055,0.8058463335037231
+mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,shoulder_Vx,-0.01918223248594222,0.9978368878364563,0.7971473336219788
+mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,shoulder_Vy,-0.06099075080682529,1.011319160461426,0.7991487383842468
+mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,shoulder_Vz,-0.06504982018537267,1.008879542350769,0.8043749332427979
+mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,elbow_Vx,0.04416278303948092,0.9738242030143738,0.7819519639015198
+mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,elbow_Vy,-0.001534676770302819,1.006157636642456,0.7945738434791565
+mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,elbow_Vz,-0.04198931657095529,1.04692542552948,0.8312983512878418
+mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,wrist_Vx,-0.01961473417697924,1.016013503074646,0.8143136501312256
+mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,wrist_Vy,-0.03720823696740561,1.005911827087402,0.8017548322677612
+mock,Baseline 7: Normal MHA fusion,MI_test,EEG_zeroIMU_NormalMHA_fusion,wrist_Vz,0.01595469472031951,1.024177312850952,0.820472776889801
+mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,shoulder_Vx,-0.0230895949101732,1.011923432350159,0.806136429309845
+mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,shoulder_Vy,-0.0389702706614427,0.9870129227638245,0.7923060655593872
+mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,shoulder_Vz,-0.00416974447292608,1.003745913505554,0.7963113188743591
+mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,elbow_Vx,0.0427102926699172,1.024998545646667,0.8230288028717041
+mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,elbow_Vy,-0.002684991619671188,1.021787166595459,0.8203364014625549
+mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,elbow_Vz,-0.03758323173706903,0.9921426773071289,0.7789009809494019
+mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,wrist_Vx,0.01030287743231876,1.010873198509216,0.7959469556808472
+mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,wrist_Vy,0.05260222791842562,0.9911888837814331,0.7928650975227356
+mock,Baseline 7: Normal MHA fusion,ME_test_after_MI_finetune_zeroIMU,EEG_zeroIMU_NormalMHA_fusion,wrist_Vz,-0.02034463845115567,1.026013135910034,0.8080332279205322

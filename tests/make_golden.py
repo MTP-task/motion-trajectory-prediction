@@ -8,7 +8,10 @@ Only do this when you intend to change results, and say why in the commit messag
 
 import argparse
 from pathlib import Path
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # import mtp without installing it
 
 import harness
 

@@ -1,6 +1,7 @@
 """Shared setup for one subject's run: data, loaders, training settings and results."""
 
 import logging
+import os
 import random
 
 import numpy as np
@@ -20,6 +21,16 @@ def set_seed(seed: int = 42):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+
+
+def set_deterministic(enabled: bool):
+    """Make runs repeatable: with the same seed, GPU training gives the same results."""
+    if enabled:
+        # cuBLAS needs a fixed workspace to be deterministic; it reads this when it starts.
+        os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    torch.use_deterministic_algorithms(enabled)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = enabled
 
 
 def resolve_device(device: str) -> str:

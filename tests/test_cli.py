@@ -1,6 +1,7 @@
 """End-to-end runs of the command line on mock data, 1 epoch per stage, on CPU."""
 
 import pytest
+import torch
 
 import harness
 
@@ -73,3 +74,19 @@ def test_skip_existing(tmp_path):
     proc = run(tmp_path, "--subject", "s001", "--baselines", "0", "--skip-existing")
     assert proc.returncode == 0
     assert "Skipping s001" in proc.stderr
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs a CUDA GPU")
+def test_gpu_runs_are_repeatable(tmp_path):
+    harness.write_mock_data(tmp_path)
+    results = []
+    for run_dir in ("first", "second"):
+        out = tmp_path / run_dir
+        args = [
+            "--subject", harness.SUBJECT, "--data-dir", str(tmp_path), "--results-dir", str(out),
+            "--baselines", "1", "3", "5", "6", "--pretrain-epochs", "2", "--finetune-epochs", "2",
+            "--device", "cuda",
+        ]  # fmt: skip
+        harness.run_cli(args, gpu=True)
+        results.append(harness.read_results(out / "baseline_results_mock_multihead.xlsx"))
+    harness.assert_same_results(results[0], results[1], rtol=0, atol=0)

@@ -12,6 +12,18 @@ import torch.nn.functional as F
 from mtp.config import IMU_DIM
 
 
+def linear_resample_matrix(n_in: int, n_out: int) -> torch.Tensor:
+    """
+    Matrix W such that `x @ W` equals
+    `F.interpolate(x, size=n_out, mode="linear", align_corners=False)` for x of shape
+    (..., n_in). W is read off PyTorch's own interpolation weights. Unlike interpolate,
+    a matrix product has a deterministic backward pass on the GPU.
+    """
+    with torch.no_grad():
+        identity = torch.eye(n_in).unsqueeze(0)
+        return F.interpolate(identity, size=n_out, mode="linear", align_corners=False)[0]
+
+
 class TCNBlock(nn.Module):
     def __init__(
         self, channels: int, kernel_size: int = 3, dilation: int = 1, dropout: float = 0.15
@@ -47,6 +59,7 @@ class EEGEncoder(nn.Module):
         super().__init__()
         self.n_bands = n_bands
         self.target_len = target_len
+        self._resample = None  # time-resampling matrix, built on first use
 
         self.band_temporal = nn.ModuleList(
             [
@@ -112,8 +125,17 @@ class EEGEncoder(nn.Module):
         h = h.squeeze(2)
         h = self.proj(h)
         h = self.tcn(h)
-        h = F.interpolate(h, size=self.target_len, mode="linear", align_corners=False)
-        return h
+        # Linear resampling of time to target_len (320 -> 150 for 5 s at 512 Hz).
+        return h @ self._resample_matrix(h)
+
+    def _resample_matrix(self, h):
+        W = self._resample
+        if W is None or W.shape[0] != h.shape[-1] or W.device != h.device or W.dtype != h.dtype:
+            W = linear_resample_matrix(h.shape[-1], self.target_len).to(
+                device=h.device, dtype=h.dtype
+            )
+            self._resample = W
+        return W
 
 
 class IMUEncoder(nn.Module):

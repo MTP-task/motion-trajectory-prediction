@@ -95,6 +95,7 @@ class Config:
     # Training
     device: str = "auto"  # "auto" (GPU if available), "cpu", "cuda" or "cuda:<index>"
     seed: int = 42
+    deterministic: bool = True  # same seed -> same results, also on GPU (slightly slower)
     batch_size: int = 8
     pretrain_epochs: int = 80
     finetune_epochs: int = 60

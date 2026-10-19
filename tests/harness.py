@@ -114,9 +114,14 @@ def run_package(data_dir):
     return run_cli(mock_cli_args(data_dir))
 
 
-def run_cli(args, check=True):
-    """Run `python -m mtp.modeling.train <args>` on CPU and return the finished process."""
-    return _run([sys.executable, "-m", "mtp.modeling.train", *args], REPO_ROOT, check=check)
+def run_cli(args, check=True, gpu=False):
+    """Run `python -m mtp.modeling.train <args>` and return the finished process.
+
+    The GPU is hidden unless gpu=True, so results do not depend on the machine.
+    """
+    return _run(
+        [sys.executable, "-m", "mtp.modeling.train", *args], REPO_ROOT, check=check, gpu=gpu
+    )
 
 
 def run_script(workdir, git_spec, settings):
@@ -130,10 +135,12 @@ def run_script(workdir, git_spec, settings):
     return _run([sys.executable, str(script)], workdir)
 
 
-def _run(cmd, cwd, check=True):
-    # Hide the GPU: GPU training is not reproducible run to run. "-1" is needed on
-    # Windows, where an empty CUDA_VISIBLE_DEVICES still exposes the GPU.
-    env = {**os.environ, "CUDA_VISIBLE_DEVICES": "-1", "PYTHONIOENCODING": "utf-8"}
+def _run(cmd, cwd, check=True, gpu=False):
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+    if not gpu:
+        # Golden results are CPU results; GPU arithmetic differs slightly. "-1" is needed
+        # on Windows, where an empty CUDA_VISIBLE_DEVICES still exposes the GPU.
+        env["CUDA_VISIBLE_DEVICES"] = "-1"
     proc = subprocess.run(
         cmd, cwd=cwd, env=env, capture_output=True, text=True, encoding="utf-8", check=False
     )

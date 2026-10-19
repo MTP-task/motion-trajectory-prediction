@@ -30,7 +30,7 @@ import time
 from mtp.config import Config, add_config_arguments, config_from_args
 from mtp.dataset import list_subjects
 from mtp.modeling.baselines import BASELINES
-from mtp.modeling.experiment import Experiment, resolve_device, set_seed
+from mtp.modeling.experiment import Experiment, resolve_device, set_deterministic, set_seed
 
 log = logging.getLogger(__name__)
 
@@ -55,6 +55,7 @@ def run_experiment(cfg: Config):
             sorted(set(cfg.baselines)),
         )
 
+        set_deterministic(cfg.deterministic)
         set_seed(cfg.seed)
         exp = Experiment(cfg, device)
 

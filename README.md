@@ -39,6 +39,8 @@ python -m mtp.modeling.train --pretrain-epochs 5 --finetune-epochs 5 --device cp
 
 Each subject also gets a `.log` file next to its Excel file. With several subjects, a subject that fails is logged and the run continues; the exit code is 1 if any subject failed. Invalid settings (for example `--device gpu`) are rejected before any data is loaded.
 
+Runs are deterministic by default: the same settings and seed give the same results every time, on CPU or GPU, at no measurable cost in speed. `--no-deterministic` turns this off. Results on CPU and GPU differ slightly from each other.
+
 ## Tests
 
 ```bash
@@ -47,7 +49,7 @@ python -m pytest                 # everything, about 2 minutes on CPU
 ```
 
 - `tests/test_config.py`, `test_data.py`, `test_modeling.py`: unit tests for settings, data loading and splitting, metrics, Baseline 0 features and model shapes.
-- `tests/test_cli.py` (slow): runs the command line on mock data with less common options, a failing subject and `--skip-existing`.
+- `tests/test_cli.py` (slow): runs the command line on mock data with less common options, a failing subject and `--skip-existing`. On a machine with a GPU it also checks that two GPU runs give identical results.
 - `tests/test_golden.py` (slow): runs every baseline for 3 epochs on small random data (CPU, fixed seed) and checks that the result tables match `tests/golden/`.
 
 If the golden test fails, the pipeline's results changed. If you meant to change them, regenerate the expected results with `python tests/make_golden.py` and say why in the commit message.
