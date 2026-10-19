@@ -1,4 +1,5 @@
 """Shared setup for one subject's run: data, loaders, training settings and results."""
+
 import logging
 import random
 
@@ -45,11 +46,17 @@ class Experiment:
         self.mi = prepare_dataset(cfg, "MI", with_imu=False)
         for key in ("n_bands", "n_channels", "out_dim"):
             if self.me[key] != self.mi[key]:
-                raise ValueError(f"ME and MI have different {key}: {self.me[key]} vs {self.mi[key]}.")
+                raise ValueError(
+                    f"ME and MI have different {key}: {self.me[key]} vs {self.mi[key]}."
+                )
 
         self.dim_names = self.me["dim_names"]
         if self.me["dim_names"] != self.mi["dim_names"]:
-            log.warning("ME and MI dim_names differ: ME %s, MI %s", self.me["dim_names"], self.mi["dim_names"])
+            log.warning(
+                "ME and MI dim_names differ: ME %s, MI %s",
+                self.me["dim_names"],
+                self.mi["dim_names"],
+            )
 
         self.scaler = fit_target_scaler(self.me["y_train"], self.mi["y_train"])
         for data in (self.me, self.mi):
@@ -58,7 +65,9 @@ class Experiment:
 
         self.loaders = {}
         for split in ("train", "val", "test"):
-            self.loaders[f"me_{split}"] = make_loader(self.me, split, cfg.batch_size, with_imu=True)
+            self.loaders[f"me_{split}"] = make_loader(
+                self.me, split, cfg.batch_size, with_imu=True
+            )
             self.loaders[f"me_eeg_{split}"] = make_loader(self.me, split, cfg.batch_size)
             self.loaders[f"mi_{split}"] = make_loader(self.mi, split, cfg.batch_size)
 
@@ -68,8 +77,20 @@ class Experiment:
             "lr_decay_factor": cfg.lr_decay_factor,
             "lr_decay_patience": cfg.lr_decay_patience,
         }
-        self.pretrain = TrainConfig(cfg.pretrain_lr, cfg.weight_decay, cfg.pretrain_epochs, cfg.patience_pretrain, **schedule)
-        self.finetune = TrainConfig(cfg.finetune_lr, cfg.weight_decay, cfg.finetune_epochs, cfg.patience_finetune, **schedule)
+        self.pretrain = TrainConfig(
+            cfg.pretrain_lr,
+            cfg.weight_decay,
+            cfg.pretrain_epochs,
+            cfg.patience_pretrain,
+            **schedule,
+        )
+        self.finetune = TrainConfig(
+            cfg.finetune_lr,
+            cfg.weight_decay,
+            cfg.finetune_epochs,
+            cfg.patience_finetune,
+            **schedule,
+        )
         self.results = ResultsLog(cfg, self.dim_names)
 
     def regression_loss(self):
@@ -79,18 +100,32 @@ class Experiment:
     @property
     def model_dims(self) -> dict:
         """Input/output sizes shared by every model constructor."""
-        return {"n_bands": self.me["n_bands"], "n_channels": self.me["n_channels"], "out_dim": self.me["out_dim"]}
+        return {
+            "n_bands": self.me["n_bands"],
+            "n_channels": self.me["n_channels"],
+            "out_dim": self.me["out_dim"],
+        }
 
     def fit(self, stage_name, model, loaders: str, objective, train_cfg: TrainConfig):
         """Train on `<loaders>_train`, early-stop on `<loaders>_val` (e.g. loaders="mi")."""
         rows = fit(
-            stage_name, model, self.loaders[f"{loaders}_train"], self.loaders[f"{loaders}_val"],
-            objective, self.scaler, self.dim_names, train_cfg,
+            stage_name,
+            model,
+            self.loaders[f"{loaders}_train"],
+            self.loaders[f"{loaders}_val"],
+            objective,
+            self.scaler,
+            self.dim_names,
+            train_cfg,
         )
         self.results.stage_rows.extend(rows)
 
     def evaluate(self, model, loader: str, objective):
-        return run_epoch(model, self.loaders[loader], objective, self.scaler, self.dim_names, None, self.device)
+        return run_epoch(
+            model, self.loaders[loader], objective, self.scaler, self.dim_names, None, self.device
+        )
 
     def record(self, baseline_id, baseline_name, metrics, notes, evaluation_task, branch):
-        self.results.add_evaluation(baseline_id, baseline_name, metrics, notes, evaluation_task, branch)
+        self.results.add_evaluation(
+            baseline_id, baseline_name, metrics, notes, evaluation_task, branch
+        )

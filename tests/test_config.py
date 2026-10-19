@@ -1,4 +1,5 @@
 """Config validation and command-line parsing."""
+
 import argparse
 
 import pytest
@@ -21,10 +22,19 @@ def test_defaults_are_valid():
 
 
 def test_cli_overrides_and_keeps_defaults():
-    cfg = config_from_args(parse(
-        "--pretrain-epochs", "5", "--no-use-filterbank", "--baselines", "3", "6",
-        "--linear-lags-sec", "-0.2", "0",
-    ))
+    cfg = config_from_args(
+        parse(
+            "--pretrain-epochs",
+            "5",
+            "--no-use-filterbank",
+            "--baselines",
+            "3",
+            "6",
+            "--linear-lags-sec",
+            "-0.2",
+            "0",
+        )
+    )
     assert cfg.pretrain_epochs == 5
     assert cfg.use_filterbank is False
     assert cfg.baselines == [3, 6]
@@ -40,7 +50,13 @@ def test_subject_list_is_not_copied_into_config():
 
 @pytest.mark.parametrize(
     ("field", "value"),
-    [("device", "gpu"), ("target_stream", "wirst2"), ("test_fraction", 1.5), ("batch_size", 0), ("baselines", [9])],
+    [
+        ("device", "gpu"),
+        ("target_stream", "wirst2"),
+        ("test_fraction", 1.5),
+        ("batch_size", 0),
+        ("baselines", [9]),
+    ],
 )
 def test_invalid_values_are_rejected(field, value):
     with pytest.raises(ValueError, match=field):
@@ -48,7 +64,7 @@ def test_invalid_values_are_rejected(field, value):
 
 
 def test_subject_must_be_a_single_id():
-    with pytest.raises(ValueError, match="subject"):
+    with pytest.raises(TypeError, match="subject"):
         Config(subject=["s008", "s009"])
 
 
@@ -56,7 +72,9 @@ def test_device_accepts_an_index():
     assert Config(device="cuda:1").device == "cuda:1"
 
 
-@pytest.mark.parametrize("argv", [["--device", "gpu"], ["--target-stream", "wirst2"], ["--baselines", "9"]])
+@pytest.mark.parametrize(
+    "argv", [["--device", "gpu"], ["--target-stream", "wirst2"], ["--baselines", "9"]]
+)
 def test_cli_rejects_invalid_values_before_loading_data(argv, capsys):
     with pytest.raises(SystemExit) as exit_info:
         main(argv)

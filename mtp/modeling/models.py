@@ -2,17 +2,20 @@
 
 All sequence features are (batch, latent_dim, time) with time = TARGET_LEN (150).
 """
+
 import math
 
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
 
 from mtp.config import IMU_DIM
 
 
 class TCNBlock(nn.Module):
-    def __init__(self, channels: int, kernel_size: int = 3, dilation: int = 1, dropout: float = 0.15):
+    def __init__(
+        self, channels: int, kernel_size: int = 3, dilation: int = 1, dropout: float = 0.15
+    ):
         super().__init__()
         pad = (kernel_size - 1) * dilation // 2
         self.net = nn.Sequential(
@@ -45,21 +48,31 @@ class EEGEncoder(nn.Module):
         self.n_bands = n_bands
         self.target_len = target_len
 
-        self.band_temporal = nn.ModuleList([
-            nn.Sequential(
-                nn.Conv2d(1, temporal_filters, kernel_size=(1, 31), padding=(0, 15), bias=False),
-                nn.BatchNorm2d(temporal_filters),
-                nn.ELU(),
-                nn.AvgPool2d(kernel_size=(1, 4), stride=(1, 4)),
-                nn.Dropout(dropout),
-                nn.Conv2d(temporal_filters, temporal_filters, kernel_size=(1, 15), padding=(0, 7), bias=False),
-                nn.BatchNorm2d(temporal_filters),
-                nn.ELU(),
-                nn.AvgPool2d(kernel_size=(1, 2), stride=(1, 2)),
-                nn.Dropout(dropout),
-            )
-            for _ in range(n_bands)
-        ])
+        self.band_temporal = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Conv2d(
+                        1, temporal_filters, kernel_size=(1, 31), padding=(0, 15), bias=False
+                    ),
+                    nn.BatchNorm2d(temporal_filters),
+                    nn.ELU(),
+                    nn.AvgPool2d(kernel_size=(1, 4), stride=(1, 4)),
+                    nn.Dropout(dropout),
+                    nn.Conv2d(
+                        temporal_filters,
+                        temporal_filters,
+                        kernel_size=(1, 15),
+                        padding=(0, 7),
+                        bias=False,
+                    ),
+                    nn.BatchNorm2d(temporal_filters),
+                    nn.ELU(),
+                    nn.AvgPool2d(kernel_size=(1, 2), stride=(1, 2)),
+                    nn.Dropout(dropout),
+                )
+                for _ in range(n_bands)
+            ]
+        )
 
         self.spatial = nn.Sequential(
             nn.Conv2d(
@@ -90,7 +103,7 @@ class EEGEncoder(nn.Module):
     def forward(self, x):
         band_feats = []
         for b in range(self.n_bands):
-            xb = x[:, b:b + 1, :, :]
+            xb = x[:, b : b + 1, :, :]
             fb = self.band_temporal[b](xb)
             band_feats.append(fb)
 
@@ -142,7 +155,9 @@ class SeqHead(nn.Module):
 class EEGOnlyModel(nn.Module):
     def __init__(self, n_bands, n_channels, out_dim, target_len=150, latent_dim=64, dropout=0.20):
         super().__init__()
-        self.eeg_encoder = EEGEncoder(n_bands, n_channels, target_len, latent_dim=latent_dim, dropout=dropout)
+        self.eeg_encoder = EEGEncoder(
+            n_bands, n_channels, target_len, latent_dim=latent_dim, dropout=dropout
+        )
         self.head = SeqHead(latent_dim, out_dim, dropout)
 
     def forward(self, eeg):
@@ -153,6 +168,7 @@ class EEGOnlyModel(nn.Module):
 
 class ConcatFusion(nn.Module):
     """Simple fusion: concatenate EEG and IMU features, then a 1x1 conv and a TCN block."""
+
     def __init__(self, latent_dim: int, dropout: float = 0.20):
         super().__init__()
         self.net = nn.Sequential(
@@ -184,6 +200,7 @@ class BidirectionalCrossModalAttentionFusion(nn.Module):
     The residual EEG path is important for Baseline 6 because MI fine-tuning/testing
     uses zero IMU, so the model should not become completely dependent on IMU.
     """
+
     def __init__(self, latent_dim: int, num_heads: int = 4, dropout: float = 0.20):
         super().__init__()
         if latent_dim % num_heads != 0:
@@ -283,6 +300,7 @@ class NormalMultiHeadAttentionFusion(nn.Module):
 
     The EEG residual path helps preserve an EEG-only route when MI uses zero IMU.
     """
+
     def __init__(self, latent_dim: int, num_heads: int = 4, dropout: float = 0.20):
         super().__init__()
         if latent_dim % num_heads != 0:
@@ -370,6 +388,7 @@ class FusionModel(nn.Module):
     ME uses the real IMU; MI uses the same model with an all-zero IMU input.
     fusion: "concat" (Baseline 3), "cross_mha" (Baseline 6) or "self_mha" (Baseline 7).
     """
+
     def __init__(
         self,
         fusion,
@@ -382,7 +401,9 @@ class FusionModel(nn.Module):
         dropout=0.20,
     ):
         super().__init__()
-        self.eeg_encoder = EEGEncoder(n_bands, n_channels, target_len, latent_dim=latent_dim, dropout=dropout)
+        self.eeg_encoder = EEGEncoder(
+            n_bands, n_channels, target_len, latent_dim=latent_dim, dropout=dropout
+        )
         self.imu_encoder = IMUEncoder(IMU_DIM, latent_dim, dropout)
         self.fusion = make_fusion_block(fusion, latent_dim, num_heads, dropout)
         self.head = SeqHead(latent_dim, out_dim, dropout)
@@ -400,9 +421,12 @@ class DistillationSimpleModel(nn.Module):
     Teacher: EEG+IMU simple fusion
     Student: EEG only
     """
+
     def __init__(self, n_bands, n_channels, out_dim, target_len=150, latent_dim=64, dropout=0.20):
         super().__init__()
-        self.eeg_encoder = EEGEncoder(n_bands, n_channels, target_len, latent_dim=latent_dim, dropout=dropout)
+        self.eeg_encoder = EEGEncoder(
+            n_bands, n_channels, target_len, latent_dim=latent_dim, dropout=dropout
+        )
         self.imu_encoder = IMUEncoder(IMU_DIM, latent_dim, dropout)
         self.fusion = ConcatFusion(latent_dim, dropout)
         self.teacher_head = SeqHead(latent_dim, out_dim, dropout)
@@ -509,7 +533,9 @@ class FullPrivilegedModel(nn.Module):
         dropout: float = 0.20,
     ):
         super().__init__()
-        self.eeg_encoder = EEGEncoder(n_bands, n_channels, target_len, latent_dim=latent_dim, dropout=dropout)
+        self.eeg_encoder = EEGEncoder(
+            n_bands, n_channels, target_len, latent_dim=latent_dim, dropout=dropout
+        )
         self.subject_film = SubjectFiLM(n_subjects, latent_dim)
         self.imu_encoder = IMUEncoder(IMU_DIM, latent_dim, dropout)
         self.fusion = LagAwareFusion(latent_dim, lag_radius, dropout)

@@ -1,9 +1,9 @@
 """Baseline 0: time-lagged linear regression (MLR / Ridge) from EEG to velocity."""
+
 import logging
-from typing import List
 
 import numpy as np
-from sklearn.linear_model import Ridge, LinearRegression
+from sklearn.linear_model import LinearRegression, Ridge
 
 from mtp.config import EEG_FS, TARGET_LEN, TRAJ_FS
 from mtp.dataset import denormalize_targets
@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 def make_time_lagged_linear_features(
     X: np.ndarray,
-    lags_sec: List[float],
+    lags_sec: list[float],
     lag_window_sec: float,
 ):
     """
@@ -49,7 +49,7 @@ def make_time_lagged_linear_features(
 
     F = np.zeros((N, TARGET_LEN, n_feat), dtype=np.float32)
 
-    half_window = max(1, int(round((lag_window_sec * EEG_FS) / 2.0)))
+    half_window = max(1, round((lag_window_sec * EEG_FS) / 2.0))
 
     for ti in range(TARGET_LEN):
         # Use center of each 30-Hz trajectory sample.
@@ -58,7 +58,7 @@ def make_time_lagged_linear_features(
         lag_features = []
 
         for lag_sec in lags_sec:
-            center = int(round((t_sec + lag_sec) * EEG_FS))
+            center = round((t_sec + lag_sec) * EEG_FS)
             start = center - half_window
             end = center + half_window
 
@@ -105,11 +105,14 @@ def run_baseline0_linear(data, scaler, dim_names, cfg):
     """
     log.info(
         "===== Baseline 0: Time-lagged MLR ===== (lags %s s, window %.1f ms)",
-        cfg.linear_lags_sec, cfg.linear_lag_window_sec * 1000,
+        cfg.linear_lags_sec,
+        cfg.linear_lag_window_sec * 1000,
     )
 
     Ftr, Fva, Fte = (
-        make_time_lagged_linear_features(data[f"X_{split}"], cfg.linear_lags_sec, cfg.linear_lag_window_sec)
+        make_time_lagged_linear_features(
+            data[f"X_{split}"], cfg.linear_lags_sec, cfg.linear_lag_window_sec
+        )
         for split in ("train", "val", "test")
     )
 
@@ -118,15 +121,21 @@ def run_baseline0_linear(data, scaler, dim_names, cfg):
     Nte, Tte, _ = Fte.shape
 
     # Use train + validation for final linear fit.
-    X_train_final = np.concatenate([
-        Ftr.reshape(Ntr * Ttr, P),
-        Fva.reshape(Nva * Tva, P),
-    ], axis=0)
+    X_train_final = np.concatenate(
+        [
+            Ftr.reshape(Ntr * Ttr, P),
+            Fva.reshape(Nva * Tva, P),
+        ],
+        axis=0,
+    )
 
-    y_train_final = np.concatenate([
-        data["y_train_n"].reshape(Ntr * Ttr, -1),
-        data["y_val_n"].reshape(Nva * Tva, -1),
-    ], axis=0)
+    y_train_final = np.concatenate(
+        [
+            data["y_train_n"].reshape(Ntr * Ttr, -1),
+            data["y_val_n"].reshape(Nva * Tva, -1),
+        ],
+        axis=0,
+    )
 
     X_test = Fte.reshape(Nte * Tte, P)
 

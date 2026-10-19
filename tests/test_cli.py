@@ -1,14 +1,25 @@
 """End-to-end runs of the command line on mock data, 1 epoch per stage, on CPU."""
-import harness
+
 import pytest
+
+import harness
 
 pytestmark = pytest.mark.slow
 
 
 def run(data_dir, *extra):
     args = [
-        "--data-dir", str(data_dir), "--results-dir", str(data_dir / "out"),
-        "--pretrain-epochs", "1", "--finetune-epochs", "1", "--device", "cpu", *extra,
+        "--data-dir",
+        str(data_dir),
+        "--results-dir",
+        str(data_dir / "out"),
+        "--pretrain-epochs",
+        "1",
+        "--finetune-epochs",
+        "1",
+        "--device",
+        "cpu",
+        *extra,
     ]
     return harness.run_cli(args, check=False)
 
@@ -50,7 +61,9 @@ def test_failed_subject_does_not_stop_the_others(tmp_path):
     assert "1 of 2 subjects failed: s001" in proc.stderr
     out = tmp_path / "out"
     assert (out / "baseline_results_s002_multihead.xlsx").exists()
-    assert "FileNotFoundError" in (out / "baseline_results_s001_multihead.log").read_text(encoding="utf-8")
+    assert "FileNotFoundError" in (out / "baseline_results_s001_multihead.log").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_skip_existing(tmp_path):

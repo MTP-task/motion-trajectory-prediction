@@ -1,4 +1,5 @@
 """Load step 3 outputs for one subject and turn them into model-ready splits and loaders."""
+
 import logging
 from pathlib import Path
 
@@ -43,7 +44,7 @@ def list_subjects(data_dir) -> list[str]:
     subjects = set()
     for folder in (Path(data_dir) / subdir, Path(data_dir)):
         for path in folder.glob(f"{prefix}*{suffix}"):
-            subjects.add(path.name[len(prefix):-len(suffix)])
+            subjects.add(path.name[len(prefix) : -len(suffix)])
     if not subjects:
         raise FileNotFoundError(f"No {prefix}<subject>{suffix} files found in {data_dir}")
     return sorted(subjects)
@@ -88,11 +89,15 @@ def load_labels_clean(labels_path, name: str) -> np.ndarray:
     found = set(map(int, np.unique(labels)))
     unknown = found - valid
     if len(unknown) > 0:
-        raise ValueError(f"{name}: unknown labels found {sorted(unknown)}. Expected only {sorted(valid)}.")
+        raise ValueError(
+            f"{name}: unknown labels found {sorted(unknown)}. Expected only {sorted(valid)}."
+        )
 
     unique, counts = np.unique(labels, return_counts=True)
     log.info(
-        "Loaded %s labels: %d trials (%s)", name, labels.shape[0],
+        "Loaded %s labels: %d trials (%s)",
+        name,
+        labels.shape[0],
         ", ".join(f"{LABEL_TO_KEY[int(lab)]}: {count}" for lab, count in zip(unique, counts)),
     )
 
@@ -106,24 +111,44 @@ def _make_dim_names(target_stream: str):
 
     if target_stream == "imu":
         return [
-            "IMU_elbow_rotVx", "IMU_elbow_rotVy", "IMU_elbow_rotVz",
-            "IMU_wrist_rotVx", "IMU_wrist_rotVy", "IMU_wrist_rotVz",
+            "IMU_elbow_rotVx",
+            "IMU_elbow_rotVy",
+            "IMU_elbow_rotVz",
+            "IMU_wrist_rotVx",
+            "IMU_wrist_rotVy",
+            "IMU_wrist_rotVz",
         ]
 
     if target_stream == "all_xyz":
         return [
-            "shoulder_Vx", "shoulder_Vy", "shoulder_Vz",
-            "elbow_Vx", "elbow_Vy", "elbow_Vz",
-            "wrist_Vx", "wrist_Vy", "wrist_Vz",
+            "shoulder_Vx",
+            "shoulder_Vy",
+            "shoulder_Vz",
+            "elbow_Vx",
+            "elbow_Vy",
+            "elbow_Vz",
+            "wrist_Vx",
+            "wrist_Vy",
+            "wrist_Vz",
         ]
 
     if target_stream == "all_kin":
         return [
-            "shoulder_Vx", "shoulder_Vy", "shoulder_Vz",
-            "elbow_Vx", "elbow_Vy", "elbow_Vz",
-            "wrist_Vx", "wrist_Vy", "wrist_Vz",
-            "IMU_elbow_rotVx", "IMU_elbow_rotVy", "IMU_elbow_rotVz",
-            "IMU_wrist_rotVx", "IMU_wrist_rotVy", "IMU_wrist_rotVz",
+            "shoulder_Vx",
+            "shoulder_Vy",
+            "shoulder_Vz",
+            "elbow_Vx",
+            "elbow_Vy",
+            "elbow_Vz",
+            "wrist_Vx",
+            "wrist_Vy",
+            "wrist_Vz",
+            "IMU_elbow_rotVx",
+            "IMU_elbow_rotVy",
+            "IMU_elbow_rotVz",
+            "IMU_wrist_rotVx",
+            "IMU_wrist_rotVy",
+            "IMU_wrist_rotVz",
         ]
 
     raise ValueError(f"Unknown TARGET_STREAM: {target_stream}")
@@ -206,14 +231,20 @@ def build_imu_sequence(traj: dict, labels_clean: np.ndarray):
 
     imu = traj["IMU"].astype(np.float32)
     # Validates that labels_clean matches the number of IMU epochs.
-    _target_ids_from_labels(labels_clean=labels_clean, n_epochs=imu.shape[0], name="IMU trajectory")
+    _target_ids_from_labels(
+        labels_clean=labels_clean, n_epochs=imu.shape[0], name="IMU trajectory"
+    )
     return imu
 
 
 # ---- Split and target scaling -----------------------------------------------
 
+
 def stratified_split_indices(
-    target_ids: np.ndarray, seed: int = 42, test_fraction: float = 0.15, val_fraction: float = 0.1765
+    target_ids: np.ndarray,
+    seed: int = 42,
+    test_fraction: float = 0.15,
+    val_fraction: float = 0.1765,
 ):
     """
     Split trial indices into train / val / test, stratified by target.
@@ -263,35 +294,60 @@ def prepare_dataset(cfg, condition: str, with_imu: bool):
     (target 0..3), sub_<split> (subject index), imu_<split> if with_imu, plus dim_names,
     n_bands, n_channels and out_dim.
     """
-    paths = {kind: find_data_file(cfg.data_dir, kind, cfg.subject, condition) for kind in DATA_FILES}
+    paths = {
+        kind: find_data_file(cfg.data_dir, kind, cfg.subject, condition) for kind in DATA_FILES
+    }
     eeg, traj = load_eeg_and_trajectory(paths["eeg"], paths["trajectory"], condition)
     labels_clean = load_labels_clean(paths["labels"], condition)
 
     if eeg.shape[0] != labels_clean.shape[0]:
-        raise ValueError(f"{condition}: EEG epochs ({eeg.shape[0]}) != labels_clean length ({labels_clean.shape[0]}).")
+        raise ValueError(
+            f"{condition}: EEG epochs ({eeg.shape[0]}) != labels_clean length ({labels_clean.shape[0]})."
+        )
 
     y, target_ids, dim_names = build_target_sequence(traj, cfg.target_stream, labels_clean)
     if eeg.shape[0] != y.shape[0]:
-        raise ValueError(f"{condition}: EEG epochs ({eeg.shape[0]}) != target epochs ({y.shape[0]}).")
+        raise ValueError(
+            f"{condition}: EEG epochs ({eeg.shape[0]}) != target epochs ({y.shape[0]})."
+        )
 
     if with_imu:
         imu = build_imu_sequence(traj, labels_clean)
         if imu.shape[0] != y.shape[0]:
-            raise ValueError(f"{condition}: IMU epochs ({imu.shape[0]}) != target epochs ({y.shape[0]}).")
+            raise ValueError(
+                f"{condition}: IMU epochs ({imu.shape[0]}) != target epochs ({y.shape[0]})."
+            )
     log.info(
-        "%s targets: y %s (%s)%s", condition, y.shape, ", ".join(dim_names),
+        "%s targets: y %s (%s)%s",
+        condition,
+        y.shape,
+        ", ".join(dim_names),
         f", IMU {imu.shape}" if with_imu else "",
     )
 
-    split_idx = dict(zip(SPLITS, stratified_split_indices(
-        target_ids, cfg.seed, test_fraction=cfg.test_fraction, val_fraction=cfg.val_fraction,
-    )))
-    log.info("%s split (trials per target 1-4): %s", condition, " | ".join(
-        f"{split} {len(idx)} {np.bincount(target_ids[idx], minlength=4).tolist()}"
-        for split, idx in split_idx.items()
-    ))
+    split_idx = dict(
+        zip(
+            SPLITS,
+            stratified_split_indices(
+                target_ids,
+                cfg.seed,
+                test_fraction=cfg.test_fraction,
+                val_fraction=cfg.val_fraction,
+            ),
+        )
+    )
+    log.info(
+        "%s split (trials per target 1-4): %s",
+        condition,
+        " | ".join(
+            f"{split} {len(idx)} {np.bincount(target_ids[idx], minlength=4).tolist()}"
+            for split, idx in split_idx.items()
+        ),
+    )
 
-    X = make_eeg_input(eeg, EEG_FS, use_filterbank=cfg.use_filterbank, clip_value=cfg.eeg_clip_value)
+    X = make_eeg_input(
+        eeg, EEG_FS, use_filterbank=cfg.use_filterbank, clip_value=cfg.eeg_clip_value
+    )
     log.info("%s EEG model input: %s", condition, X.shape)
 
     subject_ids = np.zeros(len(target_ids), dtype=np.int64)
@@ -306,13 +362,18 @@ def prepare_dataset(cfg, condition: str, with_imu: bool):
         imu_train_n, imu_val_n, imu_test_n, imu_scaler = normalize_imu_train_only(
             *(imu[split_idx[split]] for split in SPLITS)
         )
-        data.update(imu_train=imu_train_n, imu_val=imu_val_n, imu_test=imu_test_n, imu_scaler=imu_scaler)
+        data.update(
+            imu_train=imu_train_n, imu_val=imu_val_n, imu_test=imu_test_n, imu_scaler=imu_scaler
+        )
 
-    data.update(dim_names=dim_names, n_bands=X.shape[1], n_channels=X.shape[2], out_dim=y.shape[-1])
+    data.update(
+        dim_names=dim_names, n_bands=X.shape[1], n_channels=X.shape[2], out_dim=y.shape[-1]
+    )
     return data
 
 
 # ---- PyTorch loaders --------------------------------------------------------
+
 
 def make_loader(data: dict, split: str, batch_size: int, with_imu: bool = False):
     """
@@ -329,4 +390,6 @@ def make_loader(data: dict, split: str, batch_size: int, with_imu: bool = False)
         torch.from_numpy(data[f"id_{split}"]).long(),
         torch.from_numpy(data[f"sub_{split}"]).long(),
     ]
-    return DataLoader(TensorDataset(*tensors), batch_size=batch_size, shuffle=split == "train", drop_last=False)
+    return DataLoader(
+        TensorDataset(*tensors), batch_size=batch_size, shuffle=split == "train", drop_last=False
+    )

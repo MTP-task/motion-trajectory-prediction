@@ -1,11 +1,20 @@
 """Collect result rows for one subject and export them to Excel."""
+
 from dataclasses import fields
 import logging
 
 import numpy as np
 import pandas as pd
 
-from mtp.config import BANDS, EEG_CROP_TMAX, EEG_CROP_TMIN, EEG_EPOCH_TMIN, EEG_FS, MODEL_EEG_SAMPLES, TRAJ_FS
+from mtp.config import (
+    BANDS,
+    EEG_CROP_TMAX,
+    EEG_CROP_TMIN,
+    EEG_EPOCH_TMIN,
+    EEG_FS,
+    MODEL_EEG_SAMPLES,
+    TRAJ_FS,
+)
 from mtp.modeling.metrics import long_axis_rows
 
 log = logging.getLogger(__name__)
@@ -60,16 +69,35 @@ class ResultsLog:
     def add_evaluation(self, baseline_id, baseline_name, metrics, notes, evaluation_task, branch):
         log.info(
             "RESULT %s | %s | %s: r_mean=%.4f, RMSE=%.4f, MAE=%.4f",
-            baseline_name, evaluation_task, branch, metrics["r_mean"], metrics["rmse_mean"], metrics["mae_mean"],
+            baseline_name,
+            evaluation_task,
+            branch,
+            metrics["r_mean"],
+            metrics["rmse_mean"],
+            metrics["mae_mean"],
         )
-        self.summary_rows.append(summarize_baseline(
-            self.cfg.subject, self.cfg.target_stream, baseline_id, baseline_name, metrics,
-            notes, evaluation_task=evaluation_task, branch=branch,
-        ))
-        self.axis_rows.extend(long_axis_rows(
-            self.cfg.subject, baseline_name, metrics, self.dim_names,
-            evaluation_task=evaluation_task, branch=branch,
-        ))
+        self.summary_rows.append(
+            summarize_baseline(
+                self.cfg.subject,
+                self.cfg.target_stream,
+                baseline_id,
+                baseline_name,
+                metrics,
+                notes,
+                evaluation_task=evaluation_task,
+                branch=branch,
+            )
+        )
+        self.axis_rows.extend(
+            long_axis_rows(
+                self.cfg.subject,
+                baseline_name,
+                metrics,
+                self.dim_names,
+                evaluation_task=evaluation_task,
+                branch=branch,
+            )
+        )
 
     def config_rows(self):
         rows = [
@@ -84,7 +112,9 @@ class ResultsLog:
         for f in fields(self.cfg):
             value = getattr(self.cfg, f.name)
             # Excel cells hold numbers, strings and booleans only.
-            rows.append((f.name, value if isinstance(value, (int, float, str, bool)) else str(value)))
+            rows.append(
+                (f.name, value if isinstance(value, (int, float, str, bool)) else str(value))
+            )
         return rows
 
     def save(self, path):

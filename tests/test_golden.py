@@ -7,8 +7,10 @@ single-file script (src/model/step4_model_training_MHA.py at commit 4fa608d).
 A failure means the pipeline's behaviour changed. If the change is intended,
 regenerate the expected results with `python tests/make_golden.py`.
 """
-import harness
+
 import pytest
+
+import harness
 
 pytestmark = pytest.mark.slow
 

@@ -1,8 +1,9 @@
 """Finding, loading, splitting and batching the step 3 data."""
-import harness
+
 import numpy as np
 import pytest
 
+import harness
 from mtp.config import Config
 from mtp.dataset import (
     build_target_sequence,
@@ -62,7 +63,9 @@ def test_target_streams(stream, dims):
 
 
 def test_wrist_reads_the_wirst_key():
-    y, _, dim_names = build_target_sequence(toy_trajectory(4), "wrist", np.array([101, 102, 103, 104]))
+    y, _, dim_names = build_target_sequence(
+        toy_trajectory(4), "wrist", np.array([101, 102, 103, 104])
+    )
     assert np.all(y == 2.0)
     assert dim_names == ["wrist_Vx", "wrist_Vy", "wrist_Vz"]
 
@@ -95,4 +98,10 @@ def test_prepare_dataset_and_loader(tmp_path):
 
     data["y_train_n"] = data["y_train"]  # make_loader reads the normalized targets
     batch = next(iter(make_loader(data, "train", batch_size=4, with_imu=True)))
-    assert [tuple(t.shape) for t in batch] == [(4, 6, 8, 2560), (4, 150, 6), (4, 150, 9), (4,), (4,)]
+    assert [tuple(t.shape) for t in batch] == [
+        (4, 6, 8, 2560),
+        (4, 150, 6),
+        (4, 150, 9),
+        (4,),
+        (4,),
+    ]

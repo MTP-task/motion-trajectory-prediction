@@ -5,6 +5,7 @@ Only do this when you intend to change results, and say why in the commit messag
     python tests/make_golden.py            # from the current mtp package
     python tests/make_golden.py --script 4fa608d:src/model/step4_model_training_MHA.py
 """
+
 import argparse
 from pathlib import Path
 import tempfile
@@ -17,7 +18,8 @@ def main():
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
-        "--script", metavar="REF:PATH",
+        "--script",
+        metavar="REF:PATH",
         help="run a single-file pipeline from git instead of the current package",
     )
     args = parser.parse_args()

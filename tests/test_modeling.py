@@ -1,4 +1,5 @@
 """Losses, metrics, Baseline 0 features and model output shapes."""
+
 import numpy as np
 import pytest
 import torch
@@ -6,7 +7,12 @@ import torch
 from mtp.config import TARGET_LEN
 from mtp.modeling.linear import make_time_lagged_linear_features
 from mtp.modeling.metrics import SequenceRegressionLoss, compute_metrics_np, sequence_corrcoef
-from mtp.modeling.models import DistillationSimpleModel, EEGOnlyModel, FullPrivilegedModel, FusionModel
+from mtp.modeling.models import (
+    DistillationSimpleModel,
+    EEGOnlyModel,
+    FullPrivilegedModel,
+    FusionModel,
+)
 from mtp.modeling.objectives import fusion_zero_imu
 
 DIMS = {"n_bands": 2, "n_channels": 4, "out_dim": 9}
@@ -21,7 +27,9 @@ def test_metrics_match_numpy():
     flat_true, flat_pred = y_true.reshape(-1, 3), y_pred.reshape(-1, 3)
     for d, name in enumerate("abc"):
         err = flat_true[:, d] - flat_pred[:, d]
-        assert metrics[f"r_{name}"] == pytest.approx(np.corrcoef(flat_true[:, d], flat_pred[:, d])[0, 1])
+        assert metrics[f"r_{name}"] == pytest.approx(
+            np.corrcoef(flat_true[:, d], flat_pred[:, d])[0, 1]
+        )
         assert metrics[f"rmse_{name}"] == pytest.approx(np.sqrt(np.mean(err**2)))
         assert metrics[f"mae_{name}"] == pytest.approx(np.mean(np.abs(err)))
     assert metrics["r_mean"] == pytest.approx(np.mean([metrics[f"r_{n}"] for n in "abc"]))
@@ -36,9 +44,12 @@ def test_sequence_corrcoef_matches_numpy():
     g = torch.Generator().manual_seed(0)
     y_true = torch.randn(4, 150, 3, generator=g)
     y_pred = y_true + 0.5 * torch.randn(4, 150, 3, generator=g)
-    expected = np.mean([
-        np.corrcoef(y_true.reshape(-1, 3)[:, d], y_pred.reshape(-1, 3)[:, d])[0, 1] for d in range(3)
-    ])
+    expected = np.mean(
+        [
+            np.corrcoef(y_true.reshape(-1, 3)[:, d], y_pred.reshape(-1, 3)[:, d])[0, 1]
+            for d in range(3)
+        ]
+    )
     assert sequence_corrcoef(y_pred, y_true).item() == pytest.approx(expected, abs=1e-5)
 
 
@@ -71,8 +82,12 @@ def test_lag_windows_before_the_crop_are_zero():
 @pytest.mark.parametrize("fusion", ["concat", "cross_mha", "self_mha"])
 def test_fusion_model_with_zero_imu(fusion):
     model = FusionModel(fusion, **DIMS).eval()
-    batch = (torch.randn(3, 2, 4, 2560), torch.zeros(3, 150, 9), torch.zeros(3, dtype=torch.long),
-             torch.zeros(3, dtype=torch.long))
+    batch = (
+        torch.randn(3, 2, 4, 2560),
+        torch.zeros(3, 150, 9),
+        torch.zeros(3, dtype=torch.long),
+        torch.zeros(3, dtype=torch.long),
+    )
     y_pred, _ = fusion_zero_imu(model, batch)
     assert y_pred.shape == (3, 150, 9)
 
@@ -90,6 +105,8 @@ def test_eeg_only_and_teacher_student_shapes():
     teacher, student = DistillationSimpleModel(**DIMS).eval().forward_teacher_student(eeg, imu)
     assert teacher.shape == student.shape == (3, 150, 9)
 
-    teacher, student, h_eeg, _ = FullPrivilegedModel(**DIMS).eval().forward_teacher_student(eeg, imu, subject_id)
+    teacher, student, h_eeg, _ = (
+        FullPrivilegedModel(**DIMS).eval().forward_teacher_student(eeg, imu, subject_id)
+    )
     assert teacher.shape == student.shape == (3, 150, 9)
     assert h_eeg.shape == (3, 64, 150)

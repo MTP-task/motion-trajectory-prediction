@@ -20,6 +20,7 @@ summary, axis_metrics, stages and config, and a .log file with the same name.
 With several subjects, a failing subject is logged and the run continues; the exit
 code is 1 if any subject failed.
 """
+
 import argparse
 from dataclasses import replace
 import logging
@@ -47,7 +48,12 @@ def run_experiment(cfg: Config):
     try:
         start_time = time.time()
         device = resolve_device(cfg.device)
-        log.info("Subject %s | device %s | baselines %s", cfg.subject, device, sorted(set(cfg.baselines)))
+        log.info(
+            "Subject %s | device %s | baselines %s",
+            cfg.subject,
+            device,
+            sorted(set(cfg.baselines)),
+        )
 
         set_seed(cfg.seed)
         exp = Experiment(cfg, device)
@@ -59,7 +65,9 @@ def run_experiment(cfg: Config):
             BASELINES[baseline_id](exp)
 
         exp.results.save(cfg.result_xlsx_path)
-        log.info("Subject %s finished in %.2f minutes.", cfg.subject, (time.time() - start_time) / 60)
+        log.info(
+            "Subject %s finished in %.2f minutes.", cfg.subject, (time.time() - start_time) / 60
+        )
     except Exception:
         log.exception("Subject %s failed", cfg.subject)
         raise
@@ -69,13 +77,18 @@ def run_experiment(cfg: Config):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument(
-        "--subject", nargs="+", default=[Config.subject],
+        "--subject",
+        nargs="+",
+        default=[Config.subject],
         help=f"subject IDs, or 'all' for every subject in --data-dir (default: {Config.subject})",
     )
     parser.add_argument(
-        "--skip-existing", action="store_true",
+        "--skip-existing",
+        action="store_true",
         help="skip subjects whose results file already exists in --results-dir",
     )
     add_config_arguments(parser)
@@ -83,10 +96,12 @@ def main(argv=None):
 
     try:
         base_cfg = config_from_args(args)
-    except ValueError as err:
+    except (ValueError, TypeError) as err:
         parser.error(str(err))
 
-    logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, datefmt=LOG_DATEFMT, stream=sys.stderr)
+    logging.basicConfig(
+        level=logging.INFO, format=LOG_FORMAT, datefmt=LOG_DATEFMT, stream=sys.stderr
+    )
 
     subjects = list_subjects(base_cfg.data_dir) if args.subject == ["all"] else args.subject
     failed = []
@@ -97,11 +112,16 @@ def main(argv=None):
             continue
         try:
             run_experiment(cfg)
-        except Exception:  # already logged with its traceback; continue with the next subject
+        except Exception:  # noqa: BLE001 - logged with its traceback; continue with the next subject
             failed.append(subject)
 
     if failed:
-        log.error("%d of %d subjects failed: %s (see their .log files)", len(failed), len(subjects), ", ".join(failed))
+        log.error(
+            "%d of %d subjects failed: %s (see their .log files)",
+            len(failed),
+            len(subjects),
+            ", ".join(failed),
+        )
         sys.exit(1)
 
 

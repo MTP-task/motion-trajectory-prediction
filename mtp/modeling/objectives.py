@@ -8,10 +8,11 @@ Batches come from mtp.dataset.make_loader:
     EEG-only loaders: (eeg, y, target_id, subject_id)
     EEG+IMU loaders:  (eeg, imu, y, target_id, subject_id)
 """
+
 from dataclasses import dataclass, field
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from mtp.config import IMU_DIM, TARGET_LEN
 from mtp.modeling.metrics import proto_alignment_loss
@@ -28,6 +29,7 @@ class StepOutput:
 
 
 # ---- Forward passes: (model, batch) -> (prediction, target) ------------------
+
 
 def eeg_only(model, batch):
     eeg, y, _target_id, _subject_id = batch
@@ -52,6 +54,7 @@ def distill_student(model, batch):
 
 
 # ---- Objectives -------------------------------------------------------------
+
 
 def _single_prediction_row(train, val):
     return {
@@ -87,7 +90,15 @@ class TeacherStudent:
     forward_teacher_student takes subject IDs.
     """
 
-    def __init__(self, criterion, teacher_weight, student_weight, kd_weight, kd_beta=0.5, use_subject_id=False):
+    def __init__(
+        self,
+        criterion,
+        teacher_weight,
+        student_weight,
+        kd_weight,
+        kd_beta=0.5,
+        use_subject_id=False,
+    ):
         self.teacher_weight = teacher_weight
         self.student_weight = student_weight
         self.kd_weight = kd_weight
@@ -98,7 +109,9 @@ class TeacherStudent:
     def __call__(self, model, batch):
         eeg, imu, y, _target_id, subject_id = batch
         if self.use_subject_id:
-            y_teacher, y_student, _h_eeg, _h_teacher = model.forward_teacher_student(eeg, imu, subject_id)
+            y_teacher, y_student, _h_eeg, _h_teacher = model.forward_teacher_student(
+                eeg, imu, subject_id
+            )
         else:
             y_teacher, y_student = model.forward_teacher_student(eeg, imu)
 

@@ -5,6 +5,7 @@ for every run. `Config` holds the experiment settings for one run (one subject).
 `Config` field can be overridden from the command line, e.g. `--pretrain-epochs 5`
 (see `python -m mtp.modeling.train --help`).
 """
+
 import argparse
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -27,7 +28,7 @@ EEG_EPOCH_TMIN = -2.0
 EEG_CROP_TMIN = 0.0
 EEG_CROP_TMAX = 5.0
 MODEL_EEG_SEC = EEG_CROP_TMAX - EEG_CROP_TMIN
-MODEL_EEG_SAMPLES = int(round(EEG_FS * MODEL_EEG_SEC))  # 2560
+MODEL_EEG_SAMPLES = round(EEG_FS * MODEL_EEG_SEC)  # 2560
 
 BANDS = {
     "slow": (0.5, 1.0),
@@ -67,6 +68,7 @@ BASELINE_IDS = tuple(range(8))
 
 # ---- Experiment settings ----------------------------------------------------
 
+
 @dataclass
 class Config:
     # Data and output
@@ -102,7 +104,9 @@ class Config:
     finetune_lr: float = 2e-4
     weight_decay: float = 1e-4
     grad_clip_norm: float = 5.0
-    lr_decay_factor: float = 0.5  # multiply the learning rate by this when validation loss plateaus
+    lr_decay_factor: float = (
+        0.5  # multiply the learning rate by this when validation loss plateaus
+    )
     lr_decay_patience: int = 4  # epochs without improvement before the learning rate decays
 
     # Deep model settings
@@ -132,7 +136,7 @@ class Config:
 
     def __post_init__(self):
         if not isinstance(self.subject, str):
-            raise ValueError(f"subject must be one ID such as 's026', got {self.subject!r}")
+            raise TypeError(f"subject must be one ID such as 's026', got {self.subject!r}")
         self.data_dir = Path(self.data_dir)
         self.results_dir = Path(self.results_dir)
 
@@ -146,12 +150,20 @@ class Config:
                     raise ValueError(f"{f.name}: {item!r} is not one of {list(choices)}")
 
         if not re.fullmatch(r"auto|cpu|cuda(:\d+)?", self.device):
-            raise ValueError(f"device: {self.device!r} must be 'auto', 'cpu', 'cuda' or 'cuda:<index>'")
+            raise ValueError(
+                f"device: {self.device!r} must be 'auto', 'cpu', 'cuda' or 'cuda:<index>'"
+            )
         for name in ("test_fraction", "val_fraction"):
             if not 0 < getattr(self, name) < 1:
                 raise ValueError(f"{name} must be between 0 and 1, got {getattr(self, name)}")
-        for name in ("batch_size", "pretrain_epochs", "finetune_epochs", "patience_pretrain",
-                     "patience_finetune", "latent_dim"):
+        for name in (
+            "batch_size",
+            "pretrain_epochs",
+            "finetune_epochs",
+            "patience_pretrain",
+            "patience_finetune",
+            "latent_dim",
+        ):
             if getattr(self, name) < 1:
                 raise ValueError(f"{name} must be at least 1, got {getattr(self, name)}")
 
@@ -182,7 +194,7 @@ def config_from_args(args: argparse.Namespace, skip=("subject",), **overrides) -
     """
     Build a Config from parsed arguments; options left unset keep their defaults.
     Fields in `skip` are not read from `args` (pass them as overrides instead).
-    Raises ValueError for invalid settings.
+    Raises ValueError (or TypeError) for invalid settings.
     """
     values = {
         f.name: getattr(args, f.name)

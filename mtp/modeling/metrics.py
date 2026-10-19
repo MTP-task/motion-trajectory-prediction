@@ -1,10 +1,8 @@
 """Training losses and evaluation metrics."""
-from typing import List
 
 import numpy as np
-
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
 
 
@@ -14,7 +12,7 @@ def sequence_corrcoef(y_pred: torch.Tensor, y_true: torch.Tensor, eps: float = 1
     yp = yp - yp.mean(dim=0, keepdim=True)
     yt = yt - yt.mean(dim=0, keepdim=True)
     num = (yp * yt).sum(dim=0)
-    den = torch.sqrt((yp ** 2).sum(dim=0) * (yt ** 2).sum(dim=0) + eps)
+    den = torch.sqrt((yp**2).sum(dim=0) * (yt**2).sum(dim=0) + eps)
     return (num / (den + eps)).mean()
 
 
@@ -40,7 +38,7 @@ def proto_alignment_loss(h_eeg, target_id, prototypes):
     return (1.0 - (z * p).sum(dim=-1)).mean()
 
 
-def compute_metrics_np(y_true: np.ndarray, y_pred: np.ndarray, dim_names: List[str]):
+def compute_metrics_np(y_true: np.ndarray, y_pred: np.ndarray, dim_names: list[str]):
     yt = y_true.reshape(-1, y_true.shape[-1])
     yp = y_pred.reshape(-1, y_pred.shape[-1])
 
@@ -69,18 +67,22 @@ def compute_metrics_np(y_true: np.ndarray, y_pred: np.ndarray, dim_names: List[s
     return metrics
 
 
-def long_axis_rows(subject, baseline_name, metrics, dim_names, evaluation_task="MI_test_final", branch="final"):
+def long_axis_rows(
+    subject, baseline_name, metrics, dim_names, evaluation_task="MI_test_final", branch="final"
+):
     """One row per output dimension (r, RMSE, MAE) for the axis_metrics sheet."""
     rows = []
     for name in dim_names:
-        rows.append({
-            "subject": subject,
-            "baseline": baseline_name,
-            "evaluation_task": evaluation_task,
-            "branch": branch,
-            "axis": name,
-            "r": metrics.get(f"r_{name}", np.nan),
-            "rmse": metrics.get(f"rmse_{name}", np.nan),
-            "mae": metrics.get(f"mae_{name}", np.nan),
-        })
+        rows.append(
+            {
+                "subject": subject,
+                "baseline": baseline_name,
+                "evaluation_task": evaluation_task,
+                "branch": branch,
+                "axis": name,
+                "r": metrics.get(f"r_{name}", np.nan),
+                "rmse": metrics.get(f"rmse_{name}", np.nan),
+                "mae": metrics.get(f"mae_{name}", np.nan),
+            }
+        )
     return rows

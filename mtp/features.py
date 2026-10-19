@@ -1,4 +1,5 @@
 """EEG filter bank, cropping and z-scoring; IMU normalization."""
+
 import logging
 
 import numpy as np
@@ -34,8 +35,8 @@ def get_crop_sample_indices(
     crop_tmin: float = EEG_CROP_TMIN,
     crop_tmax: float = EEG_CROP_TMAX,
 ):
-    start = int(round((crop_tmin - epoch_tmin) * fs))
-    length = int(round((crop_tmax - crop_tmin) * fs))
+    start = round((crop_tmin - epoch_tmin) * fs)
+    length = round((crop_tmax - crop_tmin) * fs)
     end = start + length
 
     if start < 0:
@@ -85,7 +86,12 @@ def make_eeg_input(
 
     log.info(
         "EEG full epoch length: %d samples | crop %g..%g s -> samples [%d:%d] (%d samples)",
-        eeg.shape[-1], crop_tmin, crop_tmax, crop_start, crop_end, crop_end - crop_start,
+        eeg.shape[-1],
+        crop_tmin,
+        crop_tmax,
+        crop_start,
+        crop_end,
+        crop_end - crop_start,
     )
 
     if not use_filterbank:
@@ -121,4 +127,9 @@ def normalize_imu_train_only(imu_train, imu_val, imu_test, eps: float = 1e-8):
 
     scaler = {"mean": mean.astype(np.float32), "std": (std + eps).astype(np.float32)}
 
-    return imu_train_n.astype(np.float32), imu_val_n.astype(np.float32), imu_test_n.astype(np.float32), scaler
+    return (
+        imu_train_n.astype(np.float32),
+        imu_val_n.astype(np.float32),
+        imu_test_n.astype(np.float32),
+        scaler,
+    )

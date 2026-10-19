@@ -1,4 +1,5 @@
 """The training loop shared by every deep baseline (objectives.py holds what differs)."""
+
 import copy
 from dataclasses import dataclass
 import logging
@@ -62,7 +63,9 @@ def run_epoch(
             out = objective(model, batch)
             if is_train:
                 out.loss.backward()
-                torch.nn.utils.clip_grad_norm_(trainable_parameters(model), max_norm=grad_clip_norm)
+                torch.nn.utils.clip_grad_norm_(
+                    trainable_parameters(model), max_norm=grad_clip_norm
+                )
                 optimizer.step()
 
         n = batch[0].shape[0]
@@ -74,14 +77,18 @@ def run_epoch(
 
     y_true = denormalize_targets(np.concatenate(y_true_all, axis=0), scaler)
     metrics = {
-        name: compute_metrics_np(y_true, denormalize_targets(np.concatenate(chunks, axis=0), scaler), dim_names)
+        name: compute_metrics_np(
+            y_true, denormalize_targets(np.concatenate(chunks, axis=0), scaler), dim_names
+        )
         for name, chunks in preds_all.items()
     }
     losses = {name: total / len(loader.dataset) for name, total in totals.items()}
     return EpochResult(losses=losses, metrics=metrics)
 
 
-def fit(stage_name, model, train_loader, val_loader, objective, scaler, dim_names, cfg: TrainConfig):
+def fit(
+    stage_name, model, train_loader, val_loader, objective, scaler, dim_names, cfg: TrainConfig
+):
     """
     Train the model's trainable parameters with AdamW, decay the learning rate when the
     validation loss plateaus, stop early after `cfg.patience` epochs without improvement,
@@ -90,7 +97,9 @@ def fit(stage_name, model, train_loader, val_loader, objective, scaler, dim_name
     Returns one row per epoch for the "stages" sheet.
     """
     model.to(cfg.device)
-    optimizer = torch.optim.AdamW(trainable_parameters(model), lr=cfg.lr, weight_decay=cfg.weight_decay)
+    optimizer = torch.optim.AdamW(
+        trainable_parameters(model), lr=cfg.lr, weight_decay=cfg.weight_decay
+    )
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="min", factor=cfg.lr_decay_factor, patience=cfg.lr_decay_patience
     )
@@ -102,27 +111,42 @@ def fit(stage_name, model, train_loader, val_loader, objective, scaler, dim_name
 
     log.info(
         "===== %s ===== (%d trainable parameters)",
-        stage_name, sum(p.numel() for p in trainable_parameters(model)),
+        stage_name,
+        sum(p.numel() for p in trainable_parameters(model)),
     )
 
     for epoch in range(1, cfg.num_epochs + 1):
-        train = run_epoch(model, train_loader, objective, scaler, dim_names, optimizer, cfg.device, cfg.grad_clip_norm)
+        train = run_epoch(
+            model,
+            train_loader,
+            objective,
+            scaler,
+            dim_names,
+            optimizer,
+            cfg.device,
+            cfg.grad_clip_norm,
+        )
         val = run_epoch(model, val_loader, objective, scaler, dim_names, None, cfg.device)
         scheduler.step(val.losses["loss"])
 
         details = objective.stage_row(train, val)
         log.info(
             "%s | Epoch %03d | train_loss=%.4f, val_loss=%.4f | %s",
-            stage_name, epoch, train.losses["loss"], val.losses["loss"],
+            stage_name,
+            epoch,
+            train.losses["loss"],
+            val.losses["loss"],
             ", ".join(f"{k}={v:.4f}" for k, v in details.items()),
         )
-        stage_rows.append({
-            "stage": stage_name,
-            "epoch": epoch,
-            "train_loss": train.losses["loss"],
-            "val_loss": val.losses["loss"],
-            **details,
-        })
+        stage_rows.append(
+            {
+                "stage": stage_name,
+                "epoch": epoch,
+                "train_loss": train.losses["loss"],
+                "val_loss": val.losses["loss"],
+                **details,
+            }
+        )
 
         if val.losses["loss"] < best_val_loss:
             best_val_loss = val.losses["loss"]

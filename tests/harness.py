@@ -6,11 +6,12 @@ for a few epochs:
 - an old single-file version of the script from git, whose settings are plain
   assignments such as `PRETRAIN_EPOCHS = 80` that we rewrite in a temp copy.
 """
+
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -27,15 +28,24 @@ SHEETS = ["summary", "axis_metrics", "stages"]
 def mock_cli_args(data_dir):
     """Command-line options that run every baseline for a few epochs on the mock data."""
     return [
-        "--subject", SUBJECT,
-        "--data-dir", str(data_dir),
-        "--results-dir", str(result_path(data_dir).parent),
-        "--baselines", *[str(i) for i in range(8)],
-        "--pretrain-epochs", "3",
-        "--finetune-epochs", "3",
-        "--patience-pretrain", "1",
-        "--patience-finetune", "1",
-        "--device", "cpu",
+        "--subject",
+        SUBJECT,
+        "--data-dir",
+        str(data_dir),
+        "--results-dir",
+        str(result_path(data_dir).parent),
+        "--baselines",
+        *[str(i) for i in range(8)],
+        "--pretrain-epochs",
+        "3",
+        "--finetune-epochs",
+        "3",
+        "--patience-pretrain",
+        "1",
+        "--patience-finetune",
+        "1",
+        "--device",
+        "cpu",
     ]
 
 
@@ -52,7 +62,9 @@ def legacy_script_settings(data_dir):
     }
 
 
-def write_mock_data(data_dir, subject=SUBJECT, n_channels=8, n_samples=4609, seed=0, layout="flat"):
+def write_mock_data(
+    data_dir, subject=SUBJECT, n_channels=8, n_samples=4609, seed=0, layout="flat"
+):
     """Write a small random dataset in the same format as step 3's output.
 
     Real data: EEG (N, 64, 4609) in volts, labels 101-104, and a trajectory dict of
@@ -78,7 +90,11 @@ def write_mock_data(data_dir, subject=SUBJECT, n_channels=8, n_samples=4609, see
             subdir, pattern = DATA_FILES[kind]
             folder = data_dir / subdir if layout == "subfolders" else data_dir
             folder.mkdir(parents=True, exist_ok=True)
-            np.save(folder / pattern.format(subject=subject, condition=condition), array, allow_pickle=True)
+            np.save(
+                folder / pattern.format(subject=subject, condition=condition),
+                array,
+                allow_pickle=True,
+            )
 
 
 def patch_settings(path, settings):
@@ -86,7 +102,8 @@ def patch_settings(path, settings):
     text = path.read_text(encoding="utf-8")
     for name, value in settings.items():
         pattern = re.compile(rf"^{re.escape(name)}\s*=.*$", re.MULTILINE)
-        text, count = pattern.subn(lambda _: f"{name} = {value!r}", text)
+        replacement = f"{name} = {value!r}"
+        text, count = pattern.subn(lambda _match, line=replacement: line, text)
         if count != 1:
             raise RuntimeError(f"expected one `{name} = ...` line in {path}, found {count}")
     path.write_text(text, encoding="utf-8")
@@ -117,7 +134,9 @@ def _run(cmd, cwd, check=True):
     # Hide the GPU: GPU training is not reproducible run to run. "-1" is needed on
     # Windows, where an empty CUDA_VISIBLE_DEVICES still exposes the GPU.
     env = {**os.environ, "CUDA_VISIBLE_DEVICES": "-1", "PYTHONIOENCODING": "utf-8"}
-    proc = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True, encoding="utf-8")
+    proc = subprocess.run(
+        cmd, cwd=cwd, env=env, capture_output=True, text=True, encoding="utf-8", check=False
+    )
     if check and proc.returncode != 0:
         raise RuntimeError(
             f"pipeline failed (exit {proc.returncode})\n"
@@ -152,8 +171,12 @@ def assert_same_results(actual, expected, rtol=1e-5, atol=1e-8):
         for col in e.columns:
             if pd.api.types.is_numeric_dtype(e[col]):
                 np.testing.assert_allclose(
-                    a[col].to_numpy(dtype=float), e[col].to_numpy(dtype=float),
-                    rtol=rtol, atol=atol, equal_nan=True, err_msg=f"{sheet}.{col}",
+                    a[col].to_numpy(dtype=float),
+                    e[col].to_numpy(dtype=float),
+                    rtol=rtol,
+                    atol=atol,
+                    equal_nan=True,
+                    err_msg=f"{sheet}.{col}",
                 )
             else:
                 assert a[col].astype(str).tolist() == e[col].astype(str).tolist(), f"{sheet}.{col}"
