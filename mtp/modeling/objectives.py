@@ -162,20 +162,17 @@ class PrototypeAlignedStudent:
 
         reg(student) + proto_weight * proto_alignment_loss(features, prototypes)
 
-    Without prototypes, or with `proto_weight` 0, only the regression loss remains. That
-    is how the model is evaluated.
-
     Parameters
     ----------
     criterion : nn.Module
         Regression loss.
-    prototypes : Tensor, shape (n_targets, latent_dim), optional
+    prototypes : Tensor, shape (n_targets, latent_dim)
         Prototypes from `compute_me_prototypes`.
     proto_weight : float
         Weight of the prototype term.
     """
 
-    def __init__(self, criterion, prototypes=None, proto_weight=0.0):
+    def __init__(self, criterion, prototypes, proto_weight):
         self.prototypes = prototypes
         self.proto_weight = proto_weight
         self.criterion = criterion
@@ -185,12 +182,7 @@ class PrototypeAlignedStudent:
         eeg, y, target_id, subject_id = batch
         y_pred, h_eeg = model.forward_student_with_features(eeg, subject_id)
         reg_loss = self.criterion(y_pred, y)
-
-        if self.prototypes is not None and self.proto_weight > 0:
-            p_loss = proto_alignment_loss(h_eeg, target_id, self.prototypes.to(eeg.device))
-        else:
-            p_loss = torch.tensor(0.0, device=eeg.device)
-
+        p_loss = proto_alignment_loss(h_eeg, target_id, self.prototypes.to(eeg.device))
         loss = reg_loss + self.proto_weight * p_loss
         return StepOutput(
             loss=loss, y=y, preds={"y": y_pred}, parts={"reg_loss": reg_loss, "proto_loss": p_loss}

@@ -1,15 +1,11 @@
 """Helpers shared by the tests: mock data, running the pipeline, and comparing results.
 
-The pipeline runs in a subprocess, in one of two forms:
-- the current package, through its command line (`python -m mtp.modeling.train ...`);
-- an old single-file version of the script from git (used by make_golden.py --script).
-  Its settings are plain assignments such as `PRETRAIN_EPOCHS = 80`, which are
-  rewritten in a temporary copy.
+The pipeline runs in a subprocess through its command line, as
+``python -m mtp.modeling.train ...``.
 """
 
 import os
 from pathlib import Path
-import re
 import subprocess
 import sys
 
@@ -47,19 +43,6 @@ def mock_cli_args(data_dir):
         "--device",
         "cpu",
     ]
-
-
-def legacy_script_settings(data_dir):
-    """Return the same settings for the original single-file script (see `run_script`)."""
-    return {
-        "subject": SUBJECT,
-        "DATA_DIR": str(data_dir),
-        **{f"RUN_BASELINE_{i}": True for i in range(8)},
-        "PRETRAIN_EPOCHS": 3,
-        "FINETUNE_EPOCHS": 3,
-        "PATIENCE_PRETRAIN": 1,
-        "PATIENCE_FINETUNE": 1,
-    }
 
 
 def write_mock_data(
@@ -110,21 +93,6 @@ def write_mock_data(
             )
 
 
-def patch_settings(path, settings):
-    """Replace the top-level ``NAME = ...`` line of each setting in a script.
-
-    Raises RuntimeError unless each name has exactly one such line.
-    """
-    text = path.read_text(encoding="utf-8")
-    for name, value in settings.items():
-        pattern = re.compile(rf"^{re.escape(name)}\s*=.*$", re.MULTILINE)
-        replacement = f"{name} = {value!r}"
-        text, count = pattern.subn(lambda _match, line=replacement: line, text)
-        if count != 1:
-            raise RuntimeError(f"expected one `{name} = ...` line in {path}, found {count}")
-    path.write_text(text, encoding="utf-8")
-
-
 def run_package(data_dir):
     """Run the current `mtp` package on the mock data in `data_dir`."""
     return run_cli(mock_cli_args(data_dir))
@@ -143,30 +111,19 @@ def run_cli(args, check=True, gpu=False):
         Let the run see the GPU. By default it is hidden, because the golden results
         are CPU results.
     """
-    return _run(
-        [sys.executable, "-m", "mtp.modeling.train", *args], REPO_ROOT, check=check, gpu=gpu
-    )
-
-
-def run_script(workdir, git_spec, settings):
-    """Run a single-file version of the pipeline from git, such as "REF:path/to/script.py"."""
-    source = subprocess.run(
-        ["git", "-C", str(REPO_ROOT), "show", git_spec], capture_output=True, check=True
-    ).stdout
-    script = workdir / "pipeline.py"
-    script.write_bytes(source)
-    patch_settings(script, settings)
-    return _run([sys.executable, str(script)], workdir)
-
-
-def _run(cmd, cwd, check=True, gpu=False):
     env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
     if not gpu:
         # Golden results are CPU results; GPU arithmetic differs slightly. "-1" is needed
         # on Windows, where an empty CUDA_VISIBLE_DEVICES still exposes the GPU.
         env["CUDA_VISIBLE_DEVICES"] = "-1"
     proc = subprocess.run(
-        cmd, cwd=cwd, env=env, capture_output=True, text=True, encoding="utf-8", check=False
+        [sys.executable, "-m", "mtp.modeling.train", *args],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
     )
     if check and proc.returncode != 0:
         raise RuntimeError(

@@ -11,6 +11,9 @@ at the wrist.
 the file and the names of their outputs. `TARGET_STREAMS` lists the signals that make up
 each choice of `Config.target_stream`, in output order.
 
+Each trial has a label from 101 to 104 for its target, ball 1 to 4.
+`LABEL_TO_TARGET_ID` turns the labels into the target indices 0 to 3 used in the code.
+
 `Config` holds the settings of one run. Every setting can also be given on the command
 line; see ``python -m mtp.modeling.train --help``.
 """
@@ -72,15 +75,8 @@ TARGET_STREAMS = {
     "all_kin": ["shoulder", "elbow", "wrist", "imu"],
 }
 
-TARGET_ORDER = ["Number 1", "Number 2", "Number 3", "Number 4"]
-
-LABEL_TO_KEY = {
-    101: "Number 1",
-    102: "Number 2",
-    103: "Number 3",
-    104: "Number 4",
-}
-KEY_TO_TARGET_ID = {key: i for i, key in enumerate(TARGET_ORDER)}
+LABEL_TO_TARGET_ID = {101: 0, 102: 1, 103: 2, 104: 3}
+N_TARGETS = len(LABEL_TO_TARGET_ID)
 
 BASELINE_IDS = tuple(range(8))
 

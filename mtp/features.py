@@ -1,11 +1,18 @@
-"""Turn EEG epochs into filter-bank model input, and normalize the IMU signals."""
+"""Turn EEG epochs into filter-bank model input."""
 
 import logging
 
 import numpy as np
 from scipy.signal import butter, sosfiltfilt
 
-from mtp.config import BANDS, EEG_CROP_TMAX, EEG_CROP_TMIN, EEG_EPOCH_TMIN, EEG_FS
+from mtp.config import (
+    BANDS,
+    EEG_CROP_TMAX,
+    EEG_CROP_TMIN,
+    EEG_EPOCH_TMIN,
+    EEG_FS,
+    MODEL_EEG_SAMPLES,
+)
 
 log = logging.getLogger(__name__)
 
@@ -15,11 +22,6 @@ def zscore_epochs_per_channel(x: np.ndarray, eps: float = 1e-8):
     mean = np.nanmean(x, axis=-1, keepdims=True)
     std = np.nanstd(x, axis=-1, keepdims=True)
     return (x - mean) / (std + eps)
-
-
-def clip_extreme_values(x: np.ndarray, clip_value: float = 8.0):
-    """Limit values to the range from -clip_value to clip_value."""
-    return np.clip(x, -clip_value, clip_value)
 
 
 def bandpass_epochs(x: np.ndarray, fs: float, low: float, high: float, order: int = 4):
@@ -49,25 +51,16 @@ def bandpass_epochs(x: np.ndarray, fs: float, low: float, high: float, order: in
     return sosfiltfilt(sos, x, axis=-1)
 
 
-def get_crop_sample_indices(
-    n_samples: int,
-    fs: float = EEG_FS,
-    epoch_tmin: float = EEG_EPOCH_TMIN,
-    crop_tmin: float = EEG_CROP_TMIN,
-    crop_tmax: float = EEG_CROP_TMAX,
-):
-    """Return the first and one-past-last sample index of the crop window.
+def get_crop_sample_indices(n_samples: int):
+    """Return the first and one-past-last sample of the model window in an EEG epoch.
+
+    The window runs from `EEG_CROP_TMIN` to `EEG_CROP_TMAX` seconds after movement onset,
+    and the epoch starts at `EEG_EPOCH_TMIN`.
 
     Parameters
     ----------
     n_samples : int
         Number of samples in the full epoch.
-    fs : float
-        Sampling rate in Hz.
-    epoch_tmin : float
-        Time in seconds of the epoch's first sample, relative to movement onset.
-    crop_tmin, crop_tmax : float
-        Start and end of the crop window in seconds, relative to movement onset.
 
     Returns
     -------
@@ -76,35 +69,20 @@ def get_crop_sample_indices(
     Raises
     ------
     ValueError
-        If the crop window does not fit inside the epoch.
+        If the window does not fit inside the epoch.
     """
-    start = round((crop_tmin - epoch_tmin) * fs)
-    length = round((crop_tmax - crop_tmin) * fs)
-    end = start + length
-
-    if start < 0:
+    start = round((EEG_CROP_TMIN - EEG_EPOCH_TMIN) * EEG_FS)
+    end = start + MODEL_EEG_SAMPLES
+    if start < 0 or end > n_samples:
         raise ValueError(
-            f"Crop start sample is negative ({start}). "
-            f"Check EEG_EPOCH_TMIN={epoch_tmin}, EEG_CROP_TMIN={crop_tmin}."
+            f"The model window ({EEG_CROP_TMIN} to {EEG_CROP_TMAX} s, samples {start} to "
+            f"{end}) does not fit in an epoch of {n_samples} samples starting at "
+            f"{EEG_EPOCH_TMIN} s."
         )
-    if end > n_samples:
-        raise ValueError(
-            f"Crop end sample ({end}) is larger than EEG length ({n_samples}). "
-            f"Check input epoch length and crop settings."
-        )
-
     return start, end
 
 
-def make_eeg_input(
-    eeg: np.ndarray,
-    fs: float,
-    use_filterbank: bool = True,
-    epoch_tmin: float = EEG_EPOCH_TMIN,
-    crop_tmin: float = EEG_CROP_TMIN,
-    crop_tmax: float = EEG_CROP_TMAX,
-    clip_value: float = 8.0,
-):
+def make_eeg_input(eeg: np.ndarray, use_filterbank: bool = True, clip_value: float = 8.0):
     """Filter, crop and normalize EEG epochs for the models.
 
     Each band in `BANDS` is filtered on the full epoch before the crop, so the filter's
@@ -114,15 +92,10 @@ def make_eeg_input(
     Parameters
     ----------
     eeg : ndarray, shape (n_trials, n_channels, n_samples)
-        EEG epochs in volts, covering -2 to 7 s around movement onset.
-    fs : float
-        Sampling rate in Hz.
+        EEG epochs in volts, sampled at `EEG_FS` and covering -2 to 7 s around movement
+        onset.
     use_filterbank : bool
         Split the EEG into the bands in `BANDS`. If False, return one broadband signal.
-    epoch_tmin : float
-        Time in seconds of the epoch's first sample.
-    crop_tmin, crop_tmax : float
-        Window to keep, in seconds from movement onset.
     clip_value : float
         Limit for the z-scored values, in standard deviations.
 
@@ -132,78 +105,30 @@ def make_eeg_input(
         With the default settings, n_bands is 6 (1 without the filter bank) and
         n_crop_samples is 2560.
     """
-    eeg = eeg.astype(np.float32)
-    eeg = np.nan_to_num(eeg, nan=0.0, posinf=0.0, neginf=0.0)
-
-    crop_start, crop_end = get_crop_sample_indices(
-        n_samples=eeg.shape[-1],
-        fs=fs,
-        epoch_tmin=epoch_tmin,
-        crop_tmin=crop_tmin,
-        crop_tmax=crop_tmax,
-    )
-
+    eeg = np.nan_to_num(eeg.astype(np.float32), nan=0.0, posinf=0.0, neginf=0.0)
+    start, end = get_crop_sample_indices(eeg.shape[-1])
     log.info(
-        "EEG full epoch length: %d samples | crop %g..%g s -> samples [%d:%d] (%d samples)",
+        "EEG epochs have %d samples; the models use %g to %g s, samples %d to %d",
         eeg.shape[-1],
-        crop_tmin,
-        crop_tmax,
-        crop_start,
-        crop_end,
-        crop_end - crop_start,
+        EEG_CROP_TMIN,
+        EEG_CROP_TMAX,
+        start,
+        end,
     )
 
     if not use_filterbank:
-        x_crop = eeg[..., crop_start:crop_end]
-        X = zscore_epochs_per_channel(x_crop)[:, None, :, :]
-        X = clip_extreme_values(X, clip_value=clip_value)
-        return X.astype(np.float32)
+        return _crop_and_scale(eeg, start, end, clip_value)[:, None]
 
-    band_arrays = []
+    bands = []
     for band_name, (low, high) in BANDS.items():
-        order = 2 if band_name in ("slow", "delta") else 4
-
         log.info("Filtering %s: %s-%s Hz on the full epoch, then cropping", band_name, low, high)
-
-        xb_full = bandpass_epochs(eeg, fs, low, high, order=order)
-        xb = xb_full[..., crop_start:crop_end]
-        xb = zscore_epochs_per_channel(xb)
-        xb = clip_extreme_values(xb, clip_value=clip_value)
-        band_arrays.append(xb.astype(np.float32))
-
-    X = np.stack(band_arrays, axis=1)
-    return X.astype(np.float32)
+        order = 2 if band_name in ("slow", "delta") else 4
+        filtered = bandpass_epochs(eeg, EEG_FS, low, high, order=order)
+        bands.append(_crop_and_scale(filtered, start, end, clip_value))
+    return np.stack(bands, axis=1)
 
 
-def normalize_imu_train_only(imu_train, imu_val, imu_test, eps: float = 1e-8):
-    """Normalize the IMU signals with statistics from the training trials only.
-
-    Parameters
-    ----------
-    imu_train, imu_val, imu_test : ndarray, shape (n_trials, 150, 6)
-        IMU rotation velocities of each split.
-    eps : float
-        Added to the standard deviation to avoid dividing by zero.
-
-    Returns
-    -------
-    imu_train_n, imu_val_n, imu_test_n : ndarray of float32
-        Normalized signals, same shapes as the inputs.
-    scaler : dict
-        "mean" and "std" of each signal, each of shape (1, 1, 6).
-    """
-    mean = imu_train.mean(axis=(0, 1), keepdims=True)
-    std = imu_train.std(axis=(0, 1), keepdims=True)
-
-    imu_train_n = (imu_train - mean) / (std + eps)
-    imu_val_n = (imu_val - mean) / (std + eps)
-    imu_test_n = (imu_test - mean) / (std + eps)
-
-    scaler = {"mean": mean.astype(np.float32), "std": (std + eps).astype(np.float32)}
-
-    return (
-        imu_train_n.astype(np.float32),
-        imu_val_n.astype(np.float32),
-        imu_test_n.astype(np.float32),
-        scaler,
-    )
+def _crop_and_scale(x, start, end, clip_value):
+    """Crop to the model window, z-score each trial and channel, and clip."""
+    x = zscore_epochs_per_channel(x[..., start:end])
+    return np.clip(x, -clip_value, clip_value).astype(np.float32)

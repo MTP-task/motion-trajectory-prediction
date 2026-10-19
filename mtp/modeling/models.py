@@ -112,8 +112,6 @@ class EEGEncoder(nn.Module):
         super().__init__()
         self.n_bands = n_bands
         self.target_len = target_len
-        # Built on the first forward pass, when the input length is known.
-        self._resample = None
 
         self.band_temporal = nn.ModuleList(
             [
@@ -190,16 +188,7 @@ class EEGEncoder(nn.Module):
         h = h.squeeze(2)
         h = self.proj(h)
         h = self.tcn(h)
-        return h @ self._resample_matrix(h)
-
-    def _resample_matrix(self, h):
-        W = self._resample
-        if W is None or W.shape[0] != h.shape[-1] or W.device != h.device or W.dtype != h.dtype:
-            W = linear_resample_matrix(h.shape[-1], self.target_len).to(
-                device=h.device, dtype=h.dtype
-            )
-            self._resample = W
-        return W
+        return h @ linear_resample_matrix(h.shape[-1], self.target_len).to(h)
 
 
 class IMUEncoder(nn.Module):

@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from functools import partial
 import logging
 
-from mtp.config import TARGET_LEN, TARGET_ORDER
+from mtp.config import N_TARGETS, TARGET_LEN
 from mtp.modeling.experiment import Experiment
 from mtp.modeling.linear import run_baseline0_linear
 from mtp.modeling.models import (
@@ -375,7 +375,7 @@ def baseline_5(exp: Experiment):
     )
 
     prototypes = compute_me_prototypes(
-        model, exp.me_loaders.train, exp.device, num_targets=len(TARGET_ORDER)
+        model, exp.me_loaders.train, exp.device, num_targets=N_TARGETS
     )
     log.info("Computed ME prototypes: %s", tuple(prototypes.shape))
 
@@ -388,8 +388,8 @@ def baseline_5(exp: Experiment):
         exp.finetune,
     )
 
-    # Evaluate with the regression loss alone, without the prototype term.
-    student = PrototypeAlignedStudent(loss)
+    # As in Baseline 4, the student is scored with the regression loss alone.
+    student = Supervised(distill_student, loss)
     exp.record(
         5,
         name,

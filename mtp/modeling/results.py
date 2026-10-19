@@ -16,64 +16,8 @@ from mtp.config import (
     MODEL_EEG_SAMPLES,
     TRAJ_FS,
 )
-from mtp.modeling.metrics import long_axis_rows
 
 log = logging.getLogger(__name__)
-
-
-def summarize_baseline(
-    subject,
-    target_stream,
-    baseline_id,
-    baseline_name,
-    metrics,
-    notes,
-    evaluation_task,
-    branch,
-):
-    """Build one row of the "summary" sheet.
-
-    Parameters
-    ----------
-    subject, target_stream : str
-        Run settings recorded with the row.
-    baseline_id : int
-        Baseline number.
-    baseline_name : str
-        Baseline name.
-    metrics : dict
-        Output of `compute_metrics_np`, optionally with a "loss".
-    notes : str
-        Description of the evaluation.
-    evaluation_task, branch : str
-        What was evaluated, such as "MI_test", and which part of the model, such as
-        "student_EEG_only".
-
-    Returns
-    -------
-    dict
-        The labels, the mean r, RMSE, MAE and loss, the r of each output dimension
-        (such as ``r_wrist_Vx``) and the notes.
-    """
-    row = {
-        "subject": subject,
-        "baseline_id": baseline_id,
-        "baseline": baseline_name,
-        "evaluation_task": evaluation_task,
-        "branch": branch,
-        "target_stream": target_stream,
-        "test_r_mean": metrics.get("r_mean", np.nan),
-        "test_rmse_mean": metrics.get("rmse_mean", np.nan),
-        "test_mae_mean": metrics.get("mae_mean", np.nan),
-        "test_loss": metrics.get("loss", np.nan),
-    }
-
-    for k, v in metrics.items():
-        if k.startswith("r_") and k != "r_mean":
-            row[k] = v
-
-    row["notes"] = notes
-    return row
 
 
 class ResultsLog:
@@ -109,11 +53,12 @@ class ResultsLog:
         baseline_name : str
             Baseline name.
         metrics : dict
-            Output of `compute_metrics_np`.
+            Output of `compute_metrics_np`, optionally with a "loss".
         notes : str
             Description of the evaluation.
         evaluation_task, branch : str
-            What was evaluated and which part of the model; see `summarize_baseline`.
+            What was evaluated, such as "MI_test", and which part of the model, such as
+            "student_EEG_only".
         """
         log.info(
             "RESULT %s | %s | %s: r_mean=%.4f, RMSE=%.4f, MAE=%.4f",
@@ -125,27 +70,34 @@ class ResultsLog:
             metrics["mae_mean"],
         )
         self.summary_rows.append(
-            summarize_baseline(
-                self.cfg.subject,
-                self.cfg.target_stream,
-                baseline_id,
-                baseline_name,
-                metrics,
-                notes,
-                evaluation_task=evaluation_task,
-                branch=branch,
-            )
+            {
+                "subject": self.cfg.subject,
+                "baseline_id": baseline_id,
+                "baseline": baseline_name,
+                "evaluation_task": evaluation_task,
+                "branch": branch,
+                "target_stream": self.cfg.target_stream,
+                "test_r_mean": metrics["r_mean"],
+                "test_rmse_mean": metrics["rmse_mean"],
+                "test_mae_mean": metrics["mae_mean"],
+                "test_loss": metrics.get("loss", np.nan),
+                **{f"r_{name}": metrics[f"r_{name}"] for name in self.dim_names},
+                "notes": notes,
+            }
         )
-        self.axis_rows.extend(
-            long_axis_rows(
-                self.cfg.subject,
-                baseline_name,
-                metrics,
-                self.dim_names,
-                evaluation_task=evaluation_task,
-                branch=branch,
+        for name in self.dim_names:
+            self.axis_rows.append(
+                {
+                    "subject": self.cfg.subject,
+                    "baseline": baseline_name,
+                    "evaluation_task": evaluation_task,
+                    "branch": branch,
+                    "axis": name,
+                    "r": metrics[f"r_{name}"],
+                    "rmse": metrics[f"rmse_{name}"],
+                    "mae": metrics[f"mae_{name}"],
+                }
             )
-        )
 
     def config_rows(self):
         """Return the rows of the "config" sheet: recording constants, then all settings."""

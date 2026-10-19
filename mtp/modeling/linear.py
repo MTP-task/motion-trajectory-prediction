@@ -57,20 +57,12 @@ def make_time_lagged_linear_features(
 
         for lag_sec in lags_sec:
             center = round((t_sec + lag_sec) * EEG_FS)
-            start = center - half_window
-            end = center + half_window
-
-            if end <= 0 or start >= T_eeg:
-                feat = np.zeros((N, B, C), dtype=np.float32)
+            start = max(0, center - half_window)
+            end = min(T_eeg, center + half_window)
+            if end > start:
+                feat = X[..., start:end].mean(axis=-1)
             else:
-                start_clip = max(0, start)
-                end_clip = min(T_eeg, end)
-
-                if end_clip <= start_clip:
-                    feat = np.zeros((N, B, C), dtype=np.float32)
-                else:
-                    feat = X[..., start_clip:end_clip].mean(axis=-1).astype(np.float32)
-
+                feat = np.zeros((N, B, C), dtype=np.float32)
             lag_features.append(feat.reshape(N, -1))
 
         F[:, ti, :] = np.concatenate(lag_features, axis=1)
@@ -109,46 +101,26 @@ def run_baseline0_linear(data, scaler, dim_names, cfg):
         cfg.linear_lag_window_sec * 1000,
     )
 
-    Ftr, Fva, Fte = (
+    F_train, F_val, F_test = (
         make_time_lagged_linear_features(split.X, cfg.linear_lags_sec, cfg.linear_lag_window_sec)
         for split in data.splits()
     )
+    n_features = F_train.shape[-1]
+    n_outputs = data.train.y_norm.shape[-1]
 
-    Ntr, Ttr, P = Ftr.shape
-    Nva, Tva, _ = Fva.shape
-    Nte, Tte, _ = Fte.shape
-
-    X_train_final = np.concatenate(
-        [
-            Ftr.reshape(Ntr * Ttr, P),
-            Fva.reshape(Nva * Tva, P),
-        ],
-        axis=0,
+    model = (
+        Ridge(alpha=cfg.baseline0_ridge_alpha) if cfg.baseline0_use_ridge else LinearRegression()
     )
-
-    y_train_final = np.concatenate(
-        [
-            data.train.y_norm.reshape(Ntr * Ttr, -1),
-            data.val.y_norm.reshape(Nva * Tva, -1),
-        ],
-        axis=0,
+    model.fit(
+        np.concatenate([F_train, F_val]).reshape(-1, n_features),
+        np.concatenate([data.train.y_norm, data.val.y_norm]).reshape(-1, n_outputs),
     )
+    y_pred = model.predict(F_test.reshape(-1, n_features)).reshape(data.test.y_norm.shape)
 
-    X_test = Fte.reshape(Nte * Tte, P)
-
-    if cfg.baseline0_use_ridge:
-        model = Ridge(alpha=cfg.baseline0_ridge_alpha)
-    else:
-        model = LinearRegression()
-
-    model.fit(X_train_final, y_train_final)
-
-    y_pred_flat = model.predict(X_test)
-    y_pred_n = y_pred_flat.reshape(data.test.y_norm.shape)
-
-    y_true_orig = denormalize_targets(data.test.y_norm, scaler)
-    y_pred_orig = denormalize_targets(y_pred_n, scaler)
-
-    metrics = compute_metrics_np(y_true_orig, y_pred_orig, dim_names)
+    metrics = compute_metrics_np(
+        denormalize_targets(data.test.y_norm, scaler),
+        denormalize_targets(y_pred, scaler),
+        dim_names,
+    )
     metrics["loss"] = np.nan
     return metrics
