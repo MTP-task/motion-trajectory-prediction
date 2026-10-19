@@ -149,7 +149,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the code style and how to work with t
         ├── experiment.py  <- Data, loaders and results shared by the baselines of a subject
         ├── objectives.py  <- What each training stage computes per batch
         ├── trainers.py    <- The training loop
-        ├── models.py      <- Encoders, fusion blocks and models
+        ├── models.py      <- The model of each deep baseline
+        ├── encoders.py    <- EEG and IMU encoders
+        ├── fusion.py      <- Blocks that fuse EEG and IMU features
         ├── metrics.py     <- Losses and scores
         ├── linear.py      <- Baseline 0
         └── results.py     <- Result tables and the Excel export

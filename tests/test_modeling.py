@@ -5,6 +5,7 @@ import pytest
 import torch
 
 from mtp.config import TARGET_LEN
+from mtp.modeling.encoders import linear_resample_matrix
 from mtp.modeling.linear import make_time_lagged_linear_features
 from mtp.modeling.metrics import SequenceRegressionLoss, compute_metrics_np, sequence_corrcoef
 from mtp.modeling.models import (
@@ -13,7 +14,6 @@ from mtp.modeling.models import (
     FullPrivilegedModel,
     FusionModel,
     freeze_all_except,
-    linear_resample_matrix,
 )
 from mtp.modeling.objectives import fusion_zero_imu
 from mtp.modeling.trainers import EarlyStopping
