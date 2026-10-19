@@ -29,6 +29,8 @@ Preprocessed data (using step1-3):
 
 ## 1. Experimental program (`src/experimental_program/`)
 
+Detail of experiment design please refer here: [Participants and experimental paradigm](https://docs.google.com/document/d/1y3-T7zNQfSTVXOaqpaMZzKOZvc6PtGJ4gtaEkH0EEes/edit?usp=sharing)
+
 Code for the movement experiment and IMU acquisition.
 
 | File | Description |
@@ -37,6 +39,7 @@ Code for the movement experiment and IMU acquisition.
 | `experiment_task/MI_pygame_kinect_main.py` | Pygame-based ME/MI task with visual cues, serial triggers, camera/Kinect tracking, and synchronized IMU logging. Odd-numbered blocks run **ME** trials using Kinect tracking; even-numbered blocks run **MI** trials using webcam capture. |
 
 The experiment script reads settings from a local `config.json` (such as subject, block, stimulus timing, number of trials, and serial ports). **This configuration file is not included in the current repository.** Recorded data are written to `./data/<subject>_block_<block>_MTPTask.xlsx`, with `frames` and `imu_100hz` sheets.
+
 
 ## 2. Preprocessing (`src/preprocess/`)
 
