@@ -1,13 +1,15 @@
+"""Encoders, fusion blocks and the models used by the baselines.
+
+All sequence features are (batch, latent_dim, time) with time = TARGET_LEN (150).
+"""
 import math
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from mtp.config import IMU_DIM
 
-# ============================================================
-# 6) MODEL BLOCKS
-# ============================================================
 
 class TCNBlock(nn.Module):
     def __init__(self, channels: int, kernel_size: int = 3, dilation: int = 1, dropout: float = 0.15):
@@ -149,31 +151,20 @@ class EEGOnlyModel(nn.Module):
         return y
 
 
-class SimpleFusionModel(nn.Module):
-    """
-    Baseline 3 model:
-    ME: EEG + IMU -> simple fusion -> trajectory
-    MI: EEG + zero IMU -> same model -> trajectory
-    No student distillation, no prototype alignment.
-    """
-    def __init__(self, n_bands, n_channels, out_dim, target_len=150, latent_dim=64, dropout=0.20):
+class ConcatFusion(nn.Module):
+    """Simple fusion: concatenate EEG and IMU features, then a 1x1 conv and a TCN block."""
+    def __init__(self, latent_dim: int, dropout: float = 0.20):
         super().__init__()
-        self.eeg_encoder = EEGEncoder(n_bands, n_channels, target_len, latent_dim=latent_dim, dropout=dropout)
-        self.imu_encoder = IMUEncoder(6, latent_dim, dropout)
-        self.fusion = nn.Sequential(
+        self.net = nn.Sequential(
             nn.Conv1d(latent_dim * 2, latent_dim, kernel_size=1),
             nn.BatchNorm1d(latent_dim),
             nn.ELU(),
             nn.Dropout(dropout),
             TCNBlock(latent_dim, kernel_size=3, dilation=1, dropout=dropout),
         )
-        self.head = SeqHead(latent_dim, out_dim, dropout)
 
-    def forward(self, eeg, imu):
-        h_eeg = self.eeg_encoder(eeg)
-        h_imu = self.imu_encoder(imu)
-        h = self.fusion(torch.cat([h_eeg, h_imu], dim=1))
-        return self.head(h)
+    def forward(self, h_eeg, h_imu):
+        return self.net(torch.cat([h_eeg, h_imu], dim=1))
 
 
 class BidirectionalCrossModalAttentionFusion(nn.Module):
@@ -272,41 +263,6 @@ class BidirectionalCrossModalAttentionFusion(nn.Module):
         return self.out(fused)
 
 
-class CrossModalAttentionFusionModel(nn.Module):
-    """
-    Baseline 6 model:
-    ME: EEG + IMU -> bidirectional cross-modal MHA fusion -> trajectory
-    MI: EEG + zero IMU -> same model -> trajectory
-    No student distillation, no prototype alignment.
-    """
-    def __init__(
-        self,
-        n_bands,
-        n_channels,
-        out_dim,
-        target_len=150,
-        latent_dim=64,
-        num_heads=4,
-        dropout=0.20,
-    ):
-        super().__init__()
-        self.eeg_encoder = EEGEncoder(n_bands, n_channels, target_len, latent_dim=latent_dim, dropout=dropout)
-        self.imu_encoder = IMUEncoder(6, latent_dim, dropout)
-        self.fusion = BidirectionalCrossModalAttentionFusion(
-            latent_dim=latent_dim,
-            num_heads=num_heads,
-            dropout=dropout,
-        )
-        self.head = SeqHead(latent_dim, out_dim, dropout)
-
-    def forward(self, eeg, imu):
-        h_eeg = self.eeg_encoder(eeg)
-        h_imu = self.imu_encoder(imu)
-        h = self.fusion(h_eeg, h_imu)
-        return self.head(h)
-
-
-
 class NormalMultiHeadAttentionFusion(nn.Module):
     """
     Normal Multi-Head Attention fusion for EEG and IMU features.
@@ -394,15 +350,29 @@ class NormalMultiHeadAttentionFusion(nn.Module):
         return self.out(fused)
 
 
-class NormalMHAFusionModel(nn.Module):
+FUSION_BLOCKS = ("concat", "cross_mha", "self_mha")
+
+
+def make_fusion_block(fusion: str, latent_dim: int, num_heads: int = 4, dropout: float = 0.20):
+    if fusion == "concat":
+        return ConcatFusion(latent_dim, dropout)
+    if fusion == "cross_mha":
+        return BidirectionalCrossModalAttentionFusion(latent_dim, num_heads, dropout)
+    if fusion == "self_mha":
+        return NormalMultiHeadAttentionFusion(latent_dim, num_heads, dropout)
+    raise ValueError(f"Unknown fusion {fusion!r}; expected one of {FUSION_BLOCKS}")
+
+
+class FusionModel(nn.Module):
     """
-    Baseline 7 model:
-    ME: EEG + IMU -> normal MHA fusion over fused EEG+IMU tokens -> trajectory
-    MI: EEG + zero IMU -> same model -> trajectory
-    No student distillation, no prototype alignment.
+    Baselines 3, 6 and 7: EEG + IMU encoders -> fusion block -> trajectory head.
+
+    ME uses the real IMU; MI uses the same model with an all-zero IMU input.
+    fusion: "concat" (Baseline 3), "cross_mha" (Baseline 6) or "self_mha" (Baseline 7).
     """
     def __init__(
         self,
+        fusion,
         n_bands,
         n_channels,
         out_dim,
@@ -413,12 +383,8 @@ class NormalMHAFusionModel(nn.Module):
     ):
         super().__init__()
         self.eeg_encoder = EEGEncoder(n_bands, n_channels, target_len, latent_dim=latent_dim, dropout=dropout)
-        self.imu_encoder = IMUEncoder(6, latent_dim, dropout)
-        self.fusion = NormalMultiHeadAttentionFusion(
-            latent_dim=latent_dim,
-            num_heads=num_heads,
-            dropout=dropout,
-        )
+        self.imu_encoder = IMUEncoder(IMU_DIM, latent_dim, dropout)
+        self.fusion = make_fusion_block(fusion, latent_dim, num_heads, dropout)
         self.head = SeqHead(latent_dim, out_dim, dropout)
 
     def forward(self, eeg, imu):
@@ -437,21 +403,15 @@ class DistillationSimpleModel(nn.Module):
     def __init__(self, n_bands, n_channels, out_dim, target_len=150, latent_dim=64, dropout=0.20):
         super().__init__()
         self.eeg_encoder = EEGEncoder(n_bands, n_channels, target_len, latent_dim=latent_dim, dropout=dropout)
-        self.imu_encoder = IMUEncoder(6, latent_dim, dropout)
-        self.fusion = nn.Sequential(
-            nn.Conv1d(latent_dim * 2, latent_dim, kernel_size=1),
-            nn.BatchNorm1d(latent_dim),
-            nn.ELU(),
-            nn.Dropout(dropout),
-            TCNBlock(latent_dim, kernel_size=3, dilation=1, dropout=dropout),
-        )
+        self.imu_encoder = IMUEncoder(IMU_DIM, latent_dim, dropout)
+        self.fusion = ConcatFusion(latent_dim, dropout)
         self.teacher_head = SeqHead(latent_dim, out_dim, dropout)
         self.student_head = SeqHead(latent_dim, out_dim, dropout)
 
     def forward_teacher_student(self, eeg, imu):
         h_eeg = self.eeg_encoder(eeg)
         h_imu = self.imu_encoder(imu)
-        h_teacher = self.fusion(torch.cat([h_eeg, h_imu], dim=1))
+        h_teacher = self.fusion(h_eeg, h_imu)
         y_teacher = self.teacher_head(h_teacher)
         y_student = self.student_head(h_eeg)
         return y_teacher, y_student
@@ -551,7 +511,7 @@ class FullPrivilegedModel(nn.Module):
         super().__init__()
         self.eeg_encoder = EEGEncoder(n_bands, n_channels, target_len, latent_dim=latent_dim, dropout=dropout)
         self.subject_film = SubjectFiLM(n_subjects, latent_dim)
-        self.imu_encoder = IMUEncoder(6, latent_dim, dropout)
+        self.imu_encoder = IMUEncoder(IMU_DIM, latent_dim, dropout)
         self.fusion = LagAwareFusion(latent_dim, lag_radius, dropout)
         self.teacher_head = SeqHead(latent_dim, out_dim, dropout)
         self.student_head = SeqHead(latent_dim, out_dim, dropout)

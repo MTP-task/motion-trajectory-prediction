@@ -1,3 +1,4 @@
+"""Training losses and evaluation metrics."""
 from typing import List
 
 import numpy as np
@@ -6,12 +7,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from mtp.config import subject
-
-
-# ============================================================
-# 7) LOSSES AND METRICS
-# ============================================================
 
 def sequence_corrcoef(y_pred: torch.Tensor, y_true: torch.Tensor, eps: float = 1e-8):
     yp = y_pred.reshape(-1, y_pred.shape[-1])
@@ -72,7 +67,8 @@ def compute_metrics_np(y_true: np.ndarray, y_pred: np.ndarray, dim_names: List[s
     return metrics
 
 
-def long_axis_rows(baseline_name, metrics, dim_names, evaluation_task="MI_test_final", branch="final"):
+def long_axis_rows(subject, baseline_name, metrics, dim_names, evaluation_task="MI_test_final", branch="final"):
+    """One row per output dimension (r, RMSE, MAE) for the axis_metrics sheet."""
     rows = []
     for name in dim_names:
         rows.append({

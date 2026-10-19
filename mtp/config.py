@@ -1,42 +1,24 @@
-import os
+"""Project settings.
 
+Module-level constants describe the recordings and the epoch timing; they are the same
+for every run. `Config` holds the experiment settings for one run (one subject). Every
+`Config` field can be overridden from the command line, e.g. `--pretrain-epochs 5`
+(see `python -m mtp.modeling.train --help`).
+"""
+import argparse
+from dataclasses import dataclass, field, fields
+from pathlib import Path
+import typing
 
-# ============================================================
-# 0) USER SETTINGS
-# ============================================================
+PROJ_ROOT = Path(__file__).resolve().parents[1]
 
-subject = "s026"
-
-# Set False if you want to quickly test only one or two baselines.
-RUN_BASELINE_0 = True
-RUN_BASELINE_1 = True
-RUN_BASELINE_2 = True
-RUN_BASELINE_3 = True
-RUN_BASELINE_4 = False
-RUN_BASELINE_5 = False
-RUN_BASELINE_6 = True
-RUN_BASELINE_7 = True
-
-DATA_DIR = r"D:\MTP_task\model"
-
-RESULTS_DIR = os.path.join(DATA_DIR, "baseline_results")
-os.makedirs(RESULTS_DIR, exist_ok=True)
-
-RESULT_XLSX_PATH = os.path.join(RESULTS_DIR, f"baseline_results_{subject}_multihead.xlsx")
-
-ME_EEG_PATH = os.path.join(DATA_DIR, f"EEG_data_{subject}_ME.npy")
-ME_TRAJ_PATH = os.path.join(DATA_DIR, f"trajectory_{subject}_ME.npy")
-ME_LABELS_PATH = os.path.join(DATA_DIR, f"labels_clean_{subject}_ME.npy")
-
-MI_EEG_PATH = os.path.join(DATA_DIR, f"EEG_data_{subject}_MI.npy")
-MI_TRAJ_PATH = os.path.join(DATA_DIR, f"trajectory_{subject}_MI.npy")
-MI_LABELS_PATH = os.path.join(DATA_DIR, f"labels_clean_{subject}_MI.npy")
-
+# ---- Recording and epoch timing ---------------------------------------------
 
 EEG_FS = 512.0
 TRAJ_FS = 30.0
 EPOCH_SEC = 5.0
 TARGET_LEN = int(TRAJ_FS * EPOCH_SEC)  # 150
+IMU_DIM = 6  # elbow + wrist rotational velocity, x/y/z each
 
 # EEG input epoch timing.
 # Input EEG epoch = -2..7 s, model uses 0..5 s after filter-bank filtering.
@@ -46,14 +28,19 @@ EEG_CROP_TMAX = 5.0
 MODEL_EEG_SEC = EEG_CROP_TMAX - EEG_CROP_TMIN
 MODEL_EEG_SAMPLES = int(round(EEG_FS * MODEL_EEG_SEC))  # 2560
 
-# Main output target:
-# "wrist"    -> wrist Vx,Vy,Vz
-# "elbow"    -> elbow Vx,Vy,Vz
-# "shoulder" -> shoulder Vx,Vy,Vz
-# "all_xyz"  -> shoulder+elbow+wrist, output_dim=9
-# "all_kin"  -> shoulder+elbow+wrist+IMU, output_dim=15
-TARGET_STREAM = "all_xyz"
+BANDS = {
+    "slow": (0.5, 1.0),
+    "delta": (1.0, 4.0),
+    "theta": (4.0, 8.0),
+    "mu": (8.0, 13.0),
+    "beta": (13.0, 30.0),
+    # If your final low-pass is exactly 40 Hz, you may change this to (30.0, 40.0).
+    "low_gamma": (30.0, 45.0),
+}
 
+# ---- Targets and labels -----------------------------------------------------
+
+# Trajectory dict keys written by step 3 ("wirst" is the spelling used in the files).
 TRAJ_KEY_ALIAS = {
     "wrist": "wirst",
     "wirst": "wirst",
@@ -73,48 +60,85 @@ LABEL_TO_KEY = {
 }
 KEY_TO_TARGET_ID = {key: i for i, key in enumerate(TARGET_ORDER)}
 
-USE_FILTERBANK = True
-BANDS = {
-    "slow": (0.5, 1.0),
-    "delta": (1.0, 4.0),
-    "theta": (4.0, 8.0),
-    "mu": (8.0, 13.0),
-    "beta": (13.0, 30.0),
-    # If your final low-pass is exactly 40 Hz, you may change this to (30.0, 40.0).
-    "low_gamma": (30.0, 45.0),
-}
 
-# Deep model settings
-LATENT_DIM = 64
-LAG_RADIUS = 3
-CROSS_ATTENTION_HEADS = 4  # Used by Baseline 6 bidirectional cross-modal MHA fusion.
-NORMAL_MHA_HEADS = 4        # Used by Baseline 7 normal MHA fusion.
+# ---- Experiment settings ----------------------------------------------------
 
-BATCH_SIZE = 8
-PRETRAIN_EPOCHS = 80
-FINETUNE_EPOCHS = 60
+@dataclass
+class Config:
+    # Data and output
+    subject: str = "s026"
+    data_dir: Path = PROJ_ROOT / "data" / "processed"
+    results_dir: Path = PROJ_ROOT / "reports" / "baseline_results"
 
-PATIENCE_PRETRAIN = 12
-PATIENCE_FINETUNE = 12
+    # Baselines to run (0-7, described in mtp/modeling/baselines.py)
+    baselines: list[int] = field(default_factory=lambda: [0, 1, 2, 3, 6, 7])
 
-PRETRAIN_LR = 1e-3
-FINETUNE_LR = 2e-4
-WEIGHT_DECAY = 1e-4
-SEED = 42
+    # Main output target:
+    # "wrist" / "elbow" / "shoulder" -> Vx,Vy,Vz of that joint (3 dims)
+    # "all_xyz" -> shoulder+elbow+wrist (9 dims); "all_kin" -> all_xyz + IMU (15 dims)
+    target_stream: str = "all_xyz"
+    use_filterbank: bool = True
 
-# Loss weights
-TEACHER_LOSS_WEIGHT = 1.0
-STUDENT_SUP_LOSS_WEIGHT = 1.0
-KD_LOSS_WEIGHT = 0.5
-PROTO_LOSS_WEIGHT = 0.2
+    # Training
+    device: str = "auto"  # "auto" (GPU if available), "cpu" or "cuda"
+    seed: int = 42
+    batch_size: int = 8
+    pretrain_epochs: int = 80
+    finetune_epochs: int = 60
+    patience_pretrain: int = 12
+    patience_finetune: int = 12
+    pretrain_lr: float = 1e-3
+    finetune_lr: float = 2e-4
+    weight_decay: float = 1e-4
 
-# Baseline 0 settings: time-lagged MLR
-BASELINE0_USE_RIDGE = True
-BASELINE0_RIDGE_ALPHA = 10.0
+    # Deep model settings
+    latent_dim: int = 64
+    lag_radius: int = 3
+    cross_attention_heads: int = 4  # Used by Baseline 6 bidirectional cross-modal MHA fusion.
+    normal_mha_heads: int = 4  # Used by Baseline 7 normal MHA fusion.
 
-# Time-lagged MLR setting:
-# Each velocity sample y(t) is predicted from EEG features around t + lag.
-# Negative lags mean EEG before the target velocity sample.
-# Example: -0.300 means EEG 300 ms before the current velocity sample.
-LINEAR_LAGS_SEC = [-0.300, -0.200, -0.100, 0.000]
-LINEAR_LAG_WINDOW_SEC = 0.050  # average EEG within ±25 ms around each lag center
+    # Loss weights
+    teacher_loss_weight: float = 1.0
+    student_sup_loss_weight: float = 1.0
+    kd_loss_weight: float = 0.5
+    proto_loss_weight: float = 0.2
+
+    # Baseline 0: time-lagged MLR.
+    # Each velocity sample y(t) is predicted from EEG features around t + lag.
+    # Negative lags mean EEG before the target velocity sample.
+    # Example: -0.300 means EEG 300 ms before the current velocity sample.
+    baseline0_use_ridge: bool = True
+    baseline0_ridge_alpha: float = 10.0
+    linear_lags_sec: list[float] = field(default_factory=lambda: [-0.300, -0.200, -0.100, 0.000])
+    linear_lag_window_sec: float = 0.050  # average EEG within ±25 ms around each lag center
+
+    @property
+    def result_xlsx_path(self) -> Path:
+        return Path(self.results_dir) / f"baseline_results_{self.subject}_multihead.xlsx"
+
+
+def add_config_arguments(parser: argparse.ArgumentParser, skip=("subject",)):
+    """Add a `--field-name` option for every Config field (defaults come from Config)."""
+    defaults = Config()
+    for f in fields(Config):
+        if f.name in skip:
+            continue
+        flag = "--" + f.name.replace("_", "-")
+        help_text = f"default: {getattr(defaults, f.name)}"
+        if f.type is bool:
+            parser.add_argument(flag, action=argparse.BooleanOptionalAction, help=help_text)
+        elif typing.get_origin(f.type) is list:
+            (item_type,) = typing.get_args(f.type)
+            parser.add_argument(flag, nargs="+", type=item_type, help=help_text)
+        else:
+            parser.add_argument(flag, type=f.type, help=help_text)
+
+
+def config_from_args(args: argparse.Namespace, **overrides) -> Config:
+    """Build a Config from parsed arguments; options left unset keep their defaults."""
+    values = {
+        f.name: getattr(args, f.name)
+        for f in fields(Config)
+        if getattr(args, f.name, None) is not None
+    }
+    return Config(**{**values, **overrides})

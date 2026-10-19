@@ -27,11 +27,10 @@ def main():
         data_dir = workdir / "data"
         data_dir.mkdir()
         harness.write_mock_data(data_dir)
-        settings = harness.mock_settings(data_dir)
         if args.script:
-            harness.run_script(workdir, args.script, settings)
+            harness.run_script(workdir, args.script, harness.legacy_script_settings(data_dir))
         else:
-            harness.run_package(workdir, settings)
+            harness.run_package(data_dir)
         results = harness.read_results(harness.result_path(data_dir))
 
     harness.save_golden(results)

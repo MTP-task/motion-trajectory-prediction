@@ -1,19 +1,16 @@
+"""Collect result rows for one subject and export them to Excel."""
+from dataclasses import fields
+
 import numpy as np
+import pandas as pd
 
-from mtp.config import (
-    BANDS, BASELINE0_RIDGE_ALPHA, BASELINE0_USE_RIDGE, BATCH_SIZE, CROSS_ATTENTION_HEADS,
-    EEG_CROP_TMAX, EEG_CROP_TMIN, EEG_EPOCH_TMIN, EEG_FS, FINETUNE_EPOCHS, KD_LOSS_WEIGHT,
-    LINEAR_LAG_WINDOW_SEC, LINEAR_LAGS_SEC, MODEL_EEG_SAMPLES, NORMAL_MHA_HEADS,
-    PRETRAIN_EPOCHS, PROTO_LOSS_WEIGHT, RESULT_XLSX_PATH, SEED, TARGET_STREAM, TRAJ_FS,
-    subject,
-)
+from mtp.config import BANDS, EEG_CROP_TMAX, EEG_CROP_TMIN, EEG_EPOCH_TMIN, EEG_FS, MODEL_EEG_SAMPLES, TRAJ_FS
+from mtp.modeling.metrics import long_axis_rows
 
-
-# ============================================================
-# 11) EXPORT RESULTS
-# ============================================================
 
 def summarize_baseline(
+    subject,
+    target_stream,
     baseline_id,
     baseline_name,
     metrics,
@@ -27,7 +24,7 @@ def summarize_baseline(
         "baseline": baseline_name,
         "evaluation_task": evaluation_task,
         "branch": branch,
-        "target_stream": TARGET_STREAM,
+        "target_stream": target_stream,
         "test_r_mean": metrics.get("r_mean", np.nan),
         "test_rmse_mean": metrics.get("rmse_mean", np.nan),
         "test_mae_mean": metrics.get("mae_mean", np.nan),
@@ -47,58 +44,68 @@ def summarize_baseline(
     return row
 
 
-def save_results_to_excel(summary_rows, axis_rows, stage_rows, dim_names):
-    try:
-        import pandas as pd
-    except ImportError as exc:
-        raise ImportError("pandas is required to save .xlsx results. Please install pandas and openpyxl.") from exc
+class ResultsLog:
+    """Result rows for one subject: the summary, axis_metrics and stages sheets."""
 
-    summary_df = pd.DataFrame(summary_rows)
-    axis_df = pd.DataFrame(axis_rows)
-    stages_df = pd.DataFrame(stage_rows)
+    def __init__(self, cfg, dim_names):
+        self.cfg = cfg
+        self.dim_names = dim_names
+        self.summary_rows = []
+        self.axis_rows = []
+        self.stage_rows = []
 
-    config_rows = [
-        ("subject", subject),
-        ("target_stream", TARGET_STREAM),
-        ("dim_names", ", ".join(dim_names)),
-        ("eeg_fs", EEG_FS),
-        ("traj_fs", TRAJ_FS),
-        ("input_epoch", f"{EEG_EPOCH_TMIN} to 7.0 s assumed"),
-        ("model_crop", f"{EEG_CROP_TMIN} to {EEG_CROP_TMAX} s"),
-        ("model_eeg_samples", MODEL_EEG_SAMPLES),
-        ("bands", str(BANDS)),
-        ("batch_size", BATCH_SIZE),
-        ("pretrain_epochs", PRETRAIN_EPOCHS),
-        ("finetune_epochs", FINETUNE_EPOCHS),
-        ("seed", SEED),
-        ("baseline0_lags_sec", str(LINEAR_LAGS_SEC)),
-        ("baseline0_lag_window_sec", LINEAR_LAG_WINDOW_SEC),
-        ("baseline0_lag_window_ms", LINEAR_LAG_WINDOW_SEC * 1000),
-        ("baseline0_use_ridge", BASELINE0_USE_RIDGE),
-        ("baseline0_ridge_alpha", BASELINE0_RIDGE_ALPHA),
-        ("cross_attention_heads", CROSS_ATTENTION_HEADS),
-        ("normal_mha_heads", NORMAL_MHA_HEADS),
-        ("kd_loss_weight", KD_LOSS_WEIGHT),
-        ("proto_loss_weight", PROTO_LOSS_WEIGHT),
-    ]
-    config_df = pd.DataFrame(config_rows, columns=["parameter", "value"])
+    def add_evaluation(self, baseline_id, baseline_name, metrics, notes, evaluation_task, branch):
+        print(
+            f"\n{baseline_name} | {evaluation_task} | {branch}: "
+            f"r_mean={metrics['r_mean']:.4f}, RMSE={metrics['rmse_mean']:.4f}, MAE={metrics['mae_mean']:.4f}"
+        )
+        self.summary_rows.append(summarize_baseline(
+            self.cfg.subject, self.cfg.target_stream, baseline_id, baseline_name, metrics,
+            notes, evaluation_task=evaluation_task, branch=branch,
+        ))
+        self.axis_rows.extend(long_axis_rows(
+            self.cfg.subject, baseline_name, metrics, self.dim_names,
+            evaluation_task=evaluation_task, branch=branch,
+        ))
 
-    with pd.ExcelWriter(RESULT_XLSX_PATH, engine="openpyxl") as writer:
-        summary_df.to_excel(writer, sheet_name="summary", index=False)
-        axis_df.to_excel(writer, sheet_name="axis_metrics", index=False)
-        stages_df.to_excel(writer, sheet_name="stages", index=False)
-        config_df.to_excel(writer, sheet_name="config", index=False)
+    def config_rows(self):
+        rows = [
+            ("dim_names", ", ".join(self.dim_names)),
+            ("eeg_fs", EEG_FS),
+            ("traj_fs", TRAJ_FS),
+            ("input_epoch", f"{EEG_EPOCH_TMIN} to 7.0 s assumed"),
+            ("model_crop", f"{EEG_CROP_TMIN} to {EEG_CROP_TMAX} s"),
+            ("model_eeg_samples", MODEL_EEG_SAMPLES),
+            ("bands", str(BANDS)),
+        ]
+        for f in fields(self.cfg):
+            value = getattr(self.cfg, f.name)
+            # Excel cells hold numbers, strings and booleans only.
+            rows.append((f.name, value if isinstance(value, (int, float, str, bool)) else str(value)))
+        return rows
 
-        # Basic formatting if openpyxl is available through the writer.
-        wb = writer.book
-        for ws in wb.worksheets:
-            ws.freeze_panes = "A2"
-            for col in ws.columns:
-                max_len = 0
-                col_letter = col[0].column_letter
-                for cell in col:
-                    value = "" if cell.value is None else str(cell.value)
-                    max_len = max(max_len, min(len(value), 50))
-                ws.column_dimensions[col_letter].width = max(10, max_len + 2)
+    def save(self, path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        sheets = {
+            "summary": pd.DataFrame(self.summary_rows),
+            "axis_metrics": pd.DataFrame(self.axis_rows),
+            "stages": pd.DataFrame(self.stage_rows),
+            "config": pd.DataFrame(self.config_rows(), columns=["parameter", "value"]),
+        }
 
-    print(f"\nSaved Excel results to:\n{RESULT_XLSX_PATH}")
+        with pd.ExcelWriter(path, engine="openpyxl") as writer:
+            for sheet_name, df in sheets.items():
+                df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+            # Freeze the header row and fit column widths.
+            for ws in writer.book.worksheets:
+                ws.freeze_panes = "A2"
+                for col in ws.columns:
+                    max_len = 0
+                    col_letter = col[0].column_letter
+                    for cell in col:
+                        value = "" if cell.value is None else str(cell.value)
+                        max_len = max(max_len, min(len(value), 50))
+                    ws.column_dimensions[col_letter].width = max(10, max_len + 2)
+
+        print(f"\nSaved Excel results to:\n{path}")

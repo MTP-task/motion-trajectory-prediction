@@ -18,19 +18,23 @@ pip install -r requirements.txt
 
 ## Pipeline
 
-Data is never pushed to this repo (`/data/` is gitignored). The code currently reads and writes absolute paths under `D:\MTP_task`. A local copy of the step 3 outputs can live in `data/processed/`, but the code doesn't read from there yet.
+Data is never pushed to this repo (`/data/` is gitignored). The notebooks (steps 1-3) read and write absolute paths under `D:\MTP_task`. Step 4 reads the step 3 outputs from `data/processed/` by default (`EEG_data/`, `Kinematics_data/label/`, `Kinematics_data/trajectory/`), or from any folder given with `--data-dir`.
 
-| Step | Code | Reads (under `D:\MTP_task`) | Writes (under `D:\MTP_task`) |
+| Step | Code | Reads | Writes |
 |---|---|---|---|
-| 1 | `notebooks/step1_ICA_Epoch.ipynb` | `MTP_eeg/<subject>/*.bdf` | `MTP_eeg/cleaned_data/ICA_cleaned_Epoch_<subject>.fif` |
-| 2 | `notebooks/step2_LabelNoiseRemoval.ipynb` | `cam_data/<subject>/*.xlsx` | `cam_data/trajectory_label/Trajectory_<subject>_<ME\|MI>.pkl`, `Reject_Labels_<subject>_ME.pkl` |
-| 3 | `notebooks/step3_get_epoch_label.ipynb` | outputs of steps 1 and 2 | `model/EEG_data_*.npy`, `model/trajectory_*.npy`, `model/labels_clean_*.npy` |
-| 4 | `mtp/modeling/train.py` | outputs of step 3 | `model/baseline_results/baseline_results_<subject>_multihead.xlsx` |
+| 1 | `notebooks/step1_ICA_Epoch.ipynb` | `D:\MTP_task\MTP_eeg\<subject>\*.bdf` | `D:\MTP_task\MTP_eeg\cleaned_data\ICA_cleaned_Epoch_<subject>.fif` |
+| 2 | `notebooks/step2_LabelNoiseRemoval.ipynb` | `D:\MTP_task\cam_data\<subject>\*.xlsx` | `D:\MTP_task\cam_data\trajectory_label\Trajectory_<subject>_<ME\|MI>.pkl`, `Reject_Labels_<subject>_ME.pkl` |
+| 3 | `notebooks/step3_get_epoch_label.ipynb` | outputs of steps 1 and 2 | `D:\MTP_task\model\EEG_data_*.npy`, `trajectory_*.npy`, `labels_clean_*.npy` |
+| 4 | `python -m mtp.modeling.train` | outputs of step 3 | `reports/baseline_results/baseline_results_<subject>_multihead.xlsx` |
 
-Run step 4 from the repo root (set `subject`, paths and the `RUN_BASELINE_*` flags in `mtp/config.py` first):
+Run step 4 from the repo root. Every setting in `mtp/config.py` (`Config`) is also a command-line option; see `--help`:
 
 ```bash
-python -m mtp.modeling.train
+python -m mtp.modeling.train                                   # subject s026, baselines 0 1 2 3 6 7
+python -m mtp.modeling.train --subject s008 s009 --baselines 3 6 7
+python -m mtp.modeling.train --subject all                     # every subject in data/processed
+python -m mtp.modeling.train --data-dir D:/MTP_task/model      # lab PC: all files in one folder
+python -m mtp.modeling.train --pretrain-epochs 5 --finetune-epochs 5 --device cpu
 ```
 
 ## Tests
@@ -54,7 +58,7 @@ The test runs on CPU because GPU training is not bit-for-bit reproducible.
 ├── pyproject.toml         <- Package metadata for `mtp`, ruff and pytest settings
 ├── requirements.txt       <- Dependencies for preprocessing, training and tests
 │
-├── data                   <- Local data, gitignored (the code still uses D:\MTP_task)
+├── data                   <- Local data, gitignored
 │   ├── external
 │   ├── interim
 │   ├── processed          <- Step 3 outputs: EEG_data/, Kinematics_data/{label,trajectory}/
@@ -65,6 +69,7 @@ The test runs on CPU because GPU training is not bit-for-bit reproducible.
 ├── notebooks              <- Preprocessing notebooks, steps 1-3
 ├── references             <- Protocols, electrode montage, manuals
 ├── reports                <- Generated results
+│   ├── baseline_results   <- Step 4 Excel output, one file per subject
 │   └── figures
 │
 ├── experimental_program   <- Data-collection code for the lab PC (not part of `mtp`)
@@ -79,16 +84,19 @@ The test runs on CPU because GPU training is not bit-for-bit reproducible.
 │   └── test_golden.py
 │
 └── mtp                    <- Source code for this project
-    ├── config.py          <- User settings: subject, paths, baselines to run, hyperparameters
-    ├── dataset.py         <- Load step 3 outputs, build targets, split, scale, PyTorch datasets
+    ├── config.py          <- Recording constants and `Config` (all run settings, also CLI options)
+    ├── dataset.py         <- Find and load step 3 outputs, build targets, split, scale, loaders
     ├── features.py        <- EEG filter bank, crop and z-score; IMU normalization
     └── modeling
-        ├── models.py      <- Encoders, fusion blocks and baseline models
+        ├── train.py       <- Step 4 entry point (command line)
+        ├── baselines.py   <- Baselines 0-7, one function each
+        ├── experiment.py  <- Shared per-subject setup: data, loaders, fit/evaluate/record
+        ├── objectives.py  <- Per-batch losses: supervised, teacher-student, prototype-aligned
+        ├── trainers.py    <- The training loop shared by all deep baselines
+        ├── models.py      <- Encoders, fusion blocks and models
         ├── metrics.py     <- Losses and evaluation metrics
-        ├── trainers.py    <- Training and evaluation loops for each model type
         ├── linear.py      <- Baseline 0: time-lagged ridge regression
-        ├── results.py     <- Summary rows and Excel export
-        └── train.py       <- Step 4 entry point: runs baselines 0-7
+        └── results.py     <- Result rows and Excel export
 ```
 
 --------

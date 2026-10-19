@@ -1,24 +1,18 @@
+"""Baseline 0: time-lagged linear regression (MLR / Ridge) from EEG to velocity."""
 from typing import List
 
 import numpy as np
 from sklearn.linear_model import Ridge, LinearRegression
 
-from mtp.config import (
-    BASELINE0_RIDGE_ALPHA, BASELINE0_USE_RIDGE, EEG_FS, LINEAR_LAG_WINDOW_SEC, LINEAR_LAGS_SEC,
-    TARGET_LEN, TRAJ_FS,
-)
+from mtp.config import EEG_FS, TARGET_LEN, TRAJ_FS
 from mtp.dataset import denormalize_targets
 from mtp.modeling.metrics import compute_metrics_np
 
 
-# ============================================================
-# 9) BASELINE 0: TIME-LAGGED LINEAR MLR
-# ============================================================
-
 def make_time_lagged_linear_features(
     X: np.ndarray,
-    lags_sec: List[float] = None,
-    lag_window_sec: float = LINEAR_LAG_WINDOW_SEC,
+    lags_sec: List[float],
+    lag_window_sec: float,
 ):
     """
     Create time-lagged linear EEG features for MLR.
@@ -46,9 +40,6 @@ def make_time_lagged_linear_features(
 
         It does NOT include target labels or time-bin IDs as input features.
     """
-    if lags_sec is None:
-        lags_sec = LINEAR_LAGS_SEC
-
     N, B, C, T_eeg = X.shape
     n_lags = len(lags_sec)
     n_feat = B * C * n_lags
@@ -88,7 +79,7 @@ def make_time_lagged_linear_features(
     return F
 
 
-def run_baseline0_linear(data, scaler, dim_names):
+def run_baseline0_linear(data, scaler, dim_names, cfg):
     """
     Baseline 0: time-lagged MLR / Ridge regression.
 
@@ -110,12 +101,13 @@ def run_baseline0_linear(data, scaler, dim_names):
         and evaluated using the same r/RMSE/MAE metrics as the deep models.
     """
     print("\n===== Baseline 0: Time-lagged MLR =====")
-    print(f"Using lags in seconds: {LINEAR_LAGS_SEC}")
-    print(f"Lag window: {LINEAR_LAG_WINDOW_SEC * 1000:.1f} ms")
+    print(f"Using lags in seconds: {cfg.linear_lags_sec}")
+    print(f"Lag window: {cfg.linear_lag_window_sec * 1000:.1f} ms")
 
-    Ftr = make_time_lagged_linear_features(data["X_train"])
-    Fva = make_time_lagged_linear_features(data["X_val"])
-    Fte = make_time_lagged_linear_features(data["X_test"])
+    Ftr, Fva, Fte = (
+        make_time_lagged_linear_features(data[f"X_{split}"], cfg.linear_lags_sec, cfg.linear_lag_window_sec)
+        for split in ("train", "val", "test")
+    )
 
     Ntr, Ttr, P = Ftr.shape
     Nva, Tva, _ = Fva.shape
@@ -134,8 +126,8 @@ def run_baseline0_linear(data, scaler, dim_names):
 
     X_test = Fte.reshape(Nte * Tte, P)
 
-    if BASELINE0_USE_RIDGE:
-        model = Ridge(alpha=BASELINE0_RIDGE_ALPHA)
+    if cfg.baseline0_use_ridge:
+        model = Ridge(alpha=cfg.baseline0_ridge_alpha)
     else:
         model = LinearRegression()
 

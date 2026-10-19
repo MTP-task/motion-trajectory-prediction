@@ -15,7 +15,7 @@ def test_results_match_golden(tmp_path):
     data_dir.mkdir()
     harness.write_mock_data(data_dir)
 
-    harness.run_package(tmp_path, harness.mock_settings(data_dir))
+    harness.run_package(data_dir)
 
     actual = harness.read_results(harness.result_path(data_dir))
     harness.assert_same_results(actual, harness.load_golden())

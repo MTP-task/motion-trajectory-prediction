@@ -1,12 +1,9 @@
+"""EEG filter bank, cropping and z-scoring; IMU normalization."""
 import numpy as np
 from scipy.signal import butter, sosfiltfilt
 
 from mtp.config import BANDS, EEG_CROP_TMAX, EEG_CROP_TMIN, EEG_EPOCH_TMIN, EEG_FS
 
-
-# ============================================================
-# 3) EEG / IMU PREPROCESSING
-# ============================================================
 
 def zscore_epochs_per_channel(x: np.ndarray, eps: float = 1e-8):
     mean = np.nanmean(x, axis=-1, keepdims=True)

@@ -1,13 +1,13 @@
 """Helpers for the golden-output regression test (test_golden.py, make_golden.py).
 
-The pipeline's settings are plain assignments such as `PRETRAIN_EPOCHS = 80` in
-mtp/config.py (or at the top of the original single-file script). To run it on mock
-data without touching the source, we copy the code into a temp folder, rewrite those
-assignment lines, and run the copy in a subprocess on CPU.
+Both run the pipeline in a subprocess on CPU, on small mock data, with every baseline
+for a few epochs:
+- the current package through its command line (`python -m mtp.modeling.train ...`);
+- an old single-file version of the script from git, whose settings are plain
+  assignments such as `PRETRAIN_EPOCHS = 80` that we rewrite in a temp copy.
 """
 import os
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -22,8 +22,23 @@ SUBJECT = "mock"
 SHEETS = ["summary", "axis_metrics", "stages"]
 
 
-def mock_settings(data_dir):
-    """Settings that run every baseline for a few epochs on the mock data."""
+def mock_cli_args(data_dir):
+    """Command-line options that run every baseline for a few epochs on the mock data."""
+    return [
+        "--subject", SUBJECT,
+        "--data-dir", str(data_dir),
+        "--results-dir", str(result_path(data_dir).parent),
+        "--baselines", *[str(i) for i in range(8)],
+        "--pretrain-epochs", "3",
+        "--finetune-epochs", "3",
+        "--patience-pretrain", "1",
+        "--patience-finetune", "1",
+        "--device", "cpu",
+    ]
+
+
+def legacy_script_settings(data_dir):
+    """The same settings for the original single-file script (see run_script)."""
     return {
         "subject": SUBJECT,
         "DATA_DIR": str(data_dir),
@@ -70,16 +85,9 @@ def patch_settings(path, settings):
     path.write_text(text, encoding="utf-8")
 
 
-def run_package(workdir, settings):
-    """Copy the current `mtp` package into `workdir`, patch its config, and run training."""
-    shutil.copytree(REPO_ROOT / "mtp", workdir / "mtp", ignore=shutil.ignore_patterns("__pycache__"))
-    patch_settings(workdir / "mtp" / "config.py", settings)
-    boot = (
-        f"import sys, runpy; sys.path.insert(0, {str(workdir)!r}); import mtp; "
-        f"assert mtp.__file__.startswith({str(workdir)!r}), mtp.__file__; "
-        "runpy.run_module('mtp.modeling.train', run_name='__main__', alter_sys=True)"
-    )
-    return _run([sys.executable, "-c", boot], workdir)
+def run_package(data_dir):
+    """Run the current `mtp` package on the mock data in `data_dir`."""
+    return _run([sys.executable, "-m", "mtp.modeling.train", *mock_cli_args(data_dir)], REPO_ROOT)
 
 
 def run_script(workdir, git_spec, settings):
