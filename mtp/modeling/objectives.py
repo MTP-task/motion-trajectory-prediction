@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 
 from mtp.config import IMU_DIM, TARGET_LEN
-from mtp.modeling.metrics import SequenceRegressionLoss, proto_alignment_loss
+from mtp.modeling.metrics import proto_alignment_loss
 
 
 @dataclass
@@ -63,11 +63,11 @@ def _single_prediction_row(train, val):
 
 
 class Supervised:
-    """Regress one prediction onto the target with SequenceRegressionLoss."""
+    """Regress one prediction onto the target with the given regression loss."""
 
-    def __init__(self, forward):
+    def __init__(self, forward, criterion):
         self.forward = forward
-        self.criterion = SequenceRegressionLoss(corr_weight=0.10)
+        self.criterion = criterion
 
     def __call__(self, model, batch):
         y_pred, y = self.forward(model, batch)
@@ -83,16 +83,17 @@ class TeacherStudent:
     ME pretraining with an EEG+IMU teacher and an EEG-only student (Baselines 4 and 5):
         loss = w_teacher * reg(teacher) + w_student * reg(student)
                + w_kd * SmoothL1(student, teacher.detach())
-    Set use_subject_id for models whose forward_teacher_student takes subject IDs.
+    `criterion` is the regression loss reg. Set use_subject_id for models whose
+    forward_teacher_student takes subject IDs.
     """
 
-    def __init__(self, teacher_weight, student_weight, kd_weight, use_subject_id=False):
+    def __init__(self, criterion, teacher_weight, student_weight, kd_weight, kd_beta=0.5, use_subject_id=False):
         self.teacher_weight = teacher_weight
         self.student_weight = student_weight
         self.kd_weight = kd_weight
         self.use_subject_id = use_subject_id
-        self.reg_criterion = SequenceRegressionLoss(corr_weight=0.10)
-        self.kd_criterion = nn.SmoothL1Loss(beta=0.5)
+        self.reg_criterion = criterion
+        self.kd_criterion = nn.SmoothL1Loss(beta=kd_beta)
 
     def __call__(self, model, batch):
         eeg, imu, y, _target_id, subject_id = batch
@@ -128,10 +129,10 @@ class PrototypeAlignedStudent:
     With no prototypes (or weight 0) this is plain regression, as used for evaluation.
     """
 
-    def __init__(self, prototypes=None, proto_weight=0.0):
+    def __init__(self, criterion, prototypes=None, proto_weight=0.0):
         self.prototypes = prototypes
         self.proto_weight = proto_weight
-        self.criterion = SequenceRegressionLoss(corr_weight=0.10)
+        self.criterion = criterion
 
     def __call__(self, model, batch):
         eeg, y, target_id, subject_id = batch

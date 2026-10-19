@@ -1,4 +1,5 @@
 """Baseline 0: time-lagged linear regression (MLR / Ridge) from EEG to velocity."""
+import logging
 from typing import List
 
 import numpy as np
@@ -7,6 +8,8 @@ from sklearn.linear_model import Ridge, LinearRegression
 from mtp.config import EEG_FS, TARGET_LEN, TRAJ_FS
 from mtp.dataset import denormalize_targets
 from mtp.modeling.metrics import compute_metrics_np
+
+log = logging.getLogger(__name__)
 
 
 def make_time_lagged_linear_features(
@@ -100,9 +103,10 @@ def run_baseline0_linear(data, scaler, dim_names, cfg):
         predictions are reshaped back to (epochs, 150, output_dim)
         and evaluated using the same r/RMSE/MAE metrics as the deep models.
     """
-    print("\n===== Baseline 0: Time-lagged MLR =====")
-    print(f"Using lags in seconds: {cfg.linear_lags_sec}")
-    print(f"Lag window: {cfg.linear_lag_window_sec * 1000:.1f} ms")
+    log.info(
+        "===== Baseline 0: Time-lagged MLR ===== (lags %s s, window %.1f ms)",
+        cfg.linear_lags_sec, cfg.linear_lag_window_sec * 1000,
+    )
 
     Ftr, Fva, Fte = (
         make_time_lagged_linear_features(data[f"X_{split}"], cfg.linear_lags_sec, cfg.linear_lag_window_sec)
@@ -141,12 +145,4 @@ def run_baseline0_linear(data, scaler, dim_names, cfg):
 
     metrics = compute_metrics_np(y_true_orig, y_pred_orig, dim_names)
     metrics["loss"] = np.nan
-
-    print(
-        f"Baseline 0 time-lagged MLR test "
-        f"r_mean={metrics['r_mean']:.4f}, "
-        f"RMSE={metrics['rmse_mean']:.4f}, "
-        f"MAE={metrics['mae_mean']:.4f}"
-    )
-
     return metrics

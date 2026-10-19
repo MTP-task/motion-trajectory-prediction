@@ -23,6 +23,7 @@ Important
 """
 from dataclasses import dataclass
 from functools import partial
+import logging
 
 from mtp.config import TARGET_LEN, TARGET_ORDER
 from mtp.modeling.experiment import Experiment
@@ -37,6 +38,8 @@ from mtp.modeling.objectives import (
 )
 from mtp.modeling.trainers import compute_me_prototypes
 
+log = logging.getLogger(__name__)
+
 
 def baseline_0(exp: Experiment):
     name = "Baseline 0: Time-lagged MLR"
@@ -50,8 +53,10 @@ def baseline_0(exp: Experiment):
 
 def baseline_1(exp: Experiment):
     name = "Baseline 1: MI-only EEG"
-    objective = Supervised(eeg_only)
-    model = EEGOnlyModel(**exp.model_dims, target_len=TARGET_LEN, latent_dim=exp.cfg.latent_dim).to(exp.device)
+    objective = Supervised(eeg_only, exp.regression_loss())
+    model = EEGOnlyModel(
+        **exp.model_dims, target_len=TARGET_LEN, latent_dim=exp.cfg.latent_dim, dropout=exp.cfg.dropout,
+    ).to(exp.device)
 
     exp.fit(name, model, "mi", objective, exp.finetune)
 
@@ -63,8 +68,10 @@ def baseline_1(exp: Experiment):
 
 def baseline_2(exp: Experiment):
     name = "Baseline 2: ME EEG pretrain + MI fine-tune"
-    objective = Supervised(eeg_only)
-    model = EEGOnlyModel(**exp.model_dims, target_len=TARGET_LEN, latent_dim=exp.cfg.latent_dim).to(exp.device)
+    objective = Supervised(eeg_only, exp.regression_loss())
+    model = EEGOnlyModel(
+        **exp.model_dims, target_len=TARGET_LEN, latent_dim=exp.cfg.latent_dim, dropout=exp.cfg.dropout,
+    ).to(exp.device)
 
     exp.fit("B2 Stage 1: ME EEG-only pretraining", model, "me_eeg", objective, exp.pretrain)
     exp.record(2, name, exp.evaluate(model, "me_eeg_test", objective).flat(),
@@ -132,9 +139,11 @@ def fusion_baseline(exp: Experiment, spec: FusionBaseline):
     """ME EEG+IMU pretraining -> MI fine-tuning with zero IMU; no distillation/prototypes."""
     num_heads = {"cross_mha": exp.cfg.cross_attention_heads, "self_mha": exp.cfg.normal_mha_heads}.get(spec.fusion, 4)
     model = FusionModel(
-        spec.fusion, **exp.model_dims, target_len=TARGET_LEN, latent_dim=exp.cfg.latent_dim, num_heads=num_heads,
+        spec.fusion, **exp.model_dims, target_len=TARGET_LEN, latent_dim=exp.cfg.latent_dim,
+        num_heads=num_heads, dropout=exp.cfg.dropout,
     ).to(exp.device)
-    real_imu, zero_imu = Supervised(fusion_real_imu), Supervised(fusion_zero_imu)
+    loss = exp.regression_loss()
+    real_imu, zero_imu = Supervised(fusion_real_imu, loss), Supervised(fusion_zero_imu, loss)
 
     exp.fit(spec.pretrain_stage, model, "me", real_imu, exp.pretrain)
     exp.record(spec.id, spec.name, exp.evaluate(model, "me_test", real_imu).flat(),
@@ -150,8 +159,13 @@ def fusion_baseline(exp: Experiment, spec: FusionBaseline):
 def baseline_4(exp: Experiment):
     cfg = exp.cfg
     name = "Baseline 4: ME distillation + MI fine-tune"
-    model = DistillationSimpleModel(**exp.model_dims, target_len=TARGET_LEN, latent_dim=cfg.latent_dim).to(exp.device)
-    distill = TeacherStudent(cfg.teacher_loss_weight, cfg.student_sup_loss_weight, cfg.kd_loss_weight)
+    model = DistillationSimpleModel(
+        **exp.model_dims, target_len=TARGET_LEN, latent_dim=cfg.latent_dim, dropout=cfg.dropout,
+    ).to(exp.device)
+    loss = exp.regression_loss()
+    distill = TeacherStudent(
+        loss, cfg.teacher_loss_weight, cfg.student_sup_loss_weight, cfg.kd_loss_weight, kd_beta=cfg.kd_beta,
+    )
 
     exp.fit("B4 Stage 1: ME teacher-student distillation", model, "me", distill, exp.pretrain)
     after_pretrain = exp.evaluate(model, "me_test", distill)  # one pass scores teacher and student
@@ -163,7 +177,7 @@ def baseline_4(exp: Experiment):
                "ME_test_after_pretrain", "student_EEG_only")
 
     set_distill_student_finetune_mode(model)
-    student = Supervised(distill_student)
+    student = Supervised(distill_student, loss)
     exp.fit("B4 Stage 2: MI student fine-tuning", model, "mi", student, exp.finetune)
     exp.record(4, name, exp.evaluate(model, "mi_test", student).flat(),
                "ME EEG+IMU teacher teaches EEG-only student; final MI test; no prototype alignment",
@@ -182,9 +196,13 @@ def baseline_5(exp: Experiment):
         target_len=TARGET_LEN,
         latent_dim=cfg.latent_dim,
         lag_radius=cfg.lag_radius,
-        dropout=0.20,
+        dropout=cfg.dropout,
     ).to(exp.device)
-    distill = TeacherStudent(cfg.teacher_loss_weight, cfg.student_sup_loss_weight, cfg.kd_loss_weight, use_subject_id=True)
+    loss = exp.regression_loss()
+    distill = TeacherStudent(
+        loss, cfg.teacher_loss_weight, cfg.student_sup_loss_weight, cfg.kd_loss_weight,
+        kd_beta=cfg.kd_beta, use_subject_id=True,
+    )
 
     exp.fit("B5 Stage 1: ME full privileged pretraining", model, "me", distill, exp.pretrain)
     after_pretrain = exp.evaluate(model, "me_test", distill)  # one pass scores teacher and student
@@ -196,13 +214,13 @@ def baseline_5(exp: Experiment):
                "ME_test_after_pretrain", "student_EEG_only")
 
     prototypes = compute_me_prototypes(model, exp.loaders["me_train"], exp.device, num_targets=len(TARGET_ORDER))
-    print("Computed ME prototypes:", tuple(prototypes.shape))
+    log.info("Computed ME prototypes: %s", tuple(prototypes.shape))
 
     set_full_student_finetune_mode(model)
     exp.fit("B5 Stage 2: MI fine-tuning with prototype alignment", model, "mi",
-            PrototypeAlignedStudent(prototypes, cfg.proto_loss_weight), exp.finetune)
+            PrototypeAlignedStudent(loss, prototypes, cfg.proto_loss_weight), exp.finetune)
 
-    student = PrototypeAlignedStudent()  # evaluation: regression loss only
+    student = PrototypeAlignedStudent(loss)  # evaluation: regression loss only
     exp.record(5, name, exp.evaluate(model, "mi_test", student).flat(),
                "Lag-aware fusion + distillation + FiLM subject adaptation + ME prototype alignment; final MI test",
                "MI_test", "student_EEG_only")

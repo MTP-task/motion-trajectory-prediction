@@ -8,6 +8,9 @@ A failure means the pipeline's behaviour changed. If the change is intended,
 regenerate the expected results with `python tests/make_golden.py`.
 """
 import harness
+import pytest
+
+pytestmark = pytest.mark.slow
 
 
 def test_results_match_golden(tmp_path):

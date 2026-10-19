@@ -1,11 +1,14 @@
 """Collect result rows for one subject and export them to Excel."""
 from dataclasses import fields
+import logging
 
 import numpy as np
 import pandas as pd
 
 from mtp.config import BANDS, EEG_CROP_TMAX, EEG_CROP_TMIN, EEG_EPOCH_TMIN, EEG_FS, MODEL_EEG_SAMPLES, TRAJ_FS
 from mtp.modeling.metrics import long_axis_rows
+
+log = logging.getLogger(__name__)
 
 
 def summarize_baseline(
@@ -55,9 +58,9 @@ class ResultsLog:
         self.stage_rows = []
 
     def add_evaluation(self, baseline_id, baseline_name, metrics, notes, evaluation_task, branch):
-        print(
-            f"\n{baseline_name} | {evaluation_task} | {branch}: "
-            f"r_mean={metrics['r_mean']:.4f}, RMSE={metrics['rmse_mean']:.4f}, MAE={metrics['mae_mean']:.4f}"
+        log.info(
+            "RESULT %s | %s | %s: r_mean=%.4f, RMSE=%.4f, MAE=%.4f",
+            baseline_name, evaluation_task, branch, metrics["r_mean"], metrics["rmse_mean"], metrics["mae_mean"],
         )
         self.summary_rows.append(summarize_baseline(
             self.cfg.subject, self.cfg.target_stream, baseline_id, baseline_name, metrics,
@@ -108,4 +111,4 @@ class ResultsLog:
                         max_len = max(max_len, min(len(value), 50))
                     ws.column_dimensions[col_letter].width = max(10, max_len + 2)
 
-        print(f"\nSaved Excel results to:\n{path}")
+        log.info("Saved Excel results to %s", path)

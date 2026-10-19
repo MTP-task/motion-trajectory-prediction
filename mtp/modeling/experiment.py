@@ -1,4 +1,5 @@
 """Shared setup for one subject's run: data, loaders, training settings and results."""
+import logging
 import random
 
 import numpy as np
@@ -6,8 +7,11 @@ import torch
 
 from mtp.config import Config
 from mtp.dataset import fit_target_scaler, make_loader, normalize_targets, prepare_dataset
+from mtp.modeling.metrics import SequenceRegressionLoss
 from mtp.modeling.results import ResultsLog
 from mtp.modeling.trainers import TrainConfig, fit, run_epoch
+
+log = logging.getLogger(__name__)
 
 
 def set_seed(seed: int = 42):
@@ -45,9 +49,7 @@ class Experiment:
 
         self.dim_names = self.me["dim_names"]
         if self.me["dim_names"] != self.mi["dim_names"]:
-            print("Warning: ME and MI dim_names are different.")
-            print("ME:", self.me["dim_names"])
-            print("MI:", self.mi["dim_names"])
+            log.warning("ME and MI dim_names differ: ME %s, MI %s", self.me["dim_names"], self.mi["dim_names"])
 
         self.scaler = fit_target_scaler(self.me["y_train"], self.mi["y_train"])
         for data in (self.me, self.mi):
@@ -60,9 +62,19 @@ class Experiment:
             self.loaders[f"me_eeg_{split}"] = make_loader(self.me, split, cfg.batch_size)
             self.loaders[f"mi_{split}"] = make_loader(self.mi, split, cfg.batch_size)
 
-        self.pretrain = TrainConfig(cfg.pretrain_lr, cfg.weight_decay, cfg.pretrain_epochs, cfg.patience_pretrain, device)
-        self.finetune = TrainConfig(cfg.finetune_lr, cfg.weight_decay, cfg.finetune_epochs, cfg.patience_finetune, device)
+        schedule = {
+            "device": device,
+            "grad_clip_norm": cfg.grad_clip_norm,
+            "lr_decay_factor": cfg.lr_decay_factor,
+            "lr_decay_patience": cfg.lr_decay_patience,
+        }
+        self.pretrain = TrainConfig(cfg.pretrain_lr, cfg.weight_decay, cfg.pretrain_epochs, cfg.patience_pretrain, **schedule)
+        self.finetune = TrainConfig(cfg.finetune_lr, cfg.weight_decay, cfg.finetune_epochs, cfg.patience_finetune, **schedule)
         self.results = ResultsLog(cfg, self.dim_names)
+
+    def regression_loss(self):
+        """The regression loss used by every deep baseline (see Config loss settings)."""
+        return SequenceRegressionLoss(self.cfg.corr_loss_weight, self.cfg.huber_beta)
 
     @property
     def model_dims(self) -> dict:

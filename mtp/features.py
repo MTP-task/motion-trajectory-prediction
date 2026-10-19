@@ -1,8 +1,12 @@
 """EEG filter bank, cropping and z-scoring; IMU normalization."""
+import logging
+
 import numpy as np
 from scipy.signal import butter, sosfiltfilt
 
 from mtp.config import BANDS, EEG_CROP_TMAX, EEG_CROP_TMIN, EEG_EPOCH_TMIN, EEG_FS
+
+log = logging.getLogger(__name__)
 
 
 def zscore_epochs_per_channel(x: np.ndarray, eps: float = 1e-8):
@@ -55,19 +59,21 @@ def make_eeg_input(
     epoch_tmin: float = EEG_EPOCH_TMIN,
     crop_tmin: float = EEG_CROP_TMIN,
     crop_tmax: float = EEG_CROP_TMAX,
+    clip_value: float = 8.0,
 ):
     """
     Input:
         eeg: (N, C, T_full), expected to cover -2..7 s.
     Output:
-        X: (N, B, C, T_crop), crop is 0..5 s.
+        X: (N, B, C, T_crop), crop is 0..5 s, z-scored per trial and channel,
+        clipped to +-clip_value.
 
     Filter-bank mode:
         filter full epoch first, then crop 0..5 s.
     """
     eeg = eeg.astype(np.float32)
     eeg = np.nan_to_num(eeg, nan=0.0, posinf=0.0, neginf=0.0)
-    eeg = clip_extreme_values(eeg, clip_value=8.0)
+    eeg = clip_extreme_values(eeg, clip_value=clip_value)
 
     crop_start, crop_end = get_crop_sample_indices(
         n_samples=eeg.shape[-1],
@@ -77,16 +83,15 @@ def make_eeg_input(
         crop_tmax=crop_tmax,
     )
 
-    print(
-        f"EEG full epoch length: {eeg.shape[-1]} samples | "
-        f"crop {crop_tmin:g}..{crop_tmax:g} s -> samples [{crop_start}:{crop_end}] "
-        f"({crop_end - crop_start} samples)"
+    log.info(
+        "EEG full epoch length: %d samples | crop %g..%g s -> samples [%d:%d] (%d samples)",
+        eeg.shape[-1], crop_tmin, crop_tmax, crop_start, crop_end, crop_end - crop_start,
     )
 
     if not use_filterbank:
         x_crop = eeg[..., crop_start:crop_end]
         X = zscore_epochs_per_channel(x_crop)[:, None, :, :]
-        X = clip_extreme_values(X, clip_value=8.0)
+        X = clip_extreme_values(X, clip_value=clip_value)
         return X.astype(np.float32)
 
     band_arrays = []
@@ -94,15 +99,12 @@ def make_eeg_input(
         band_name_lower = band_name.lower()
         order = 2 if band_name_lower in ["scp", "slow", "delta"] else 4
 
-        print(
-            f"Filtering {band_name}: {low}-{high} Hz on full epoch, "
-            f"then crop to {crop_tmin:g}..{crop_tmax:g} s"
-        )
+        log.info("Filtering %s: %s-%s Hz on the full epoch, then cropping", band_name, low, high)
 
         xb_full = bandpass_epochs(eeg, fs, low, high, order=order)
         xb = xb_full[..., crop_start:crop_end]
         xb = zscore_epochs_per_channel(xb)
-        xb = clip_extreme_values(xb, clip_value=8.0)
+        xb = clip_extreme_values(xb, clip_value=clip_value)
         band_arrays.append(xb.astype(np.float32))
 
     X = np.stack(band_arrays, axis=1)

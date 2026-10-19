@@ -1,6 +1,7 @@
 """The training loop shared by every deep baseline (objectives.py holds what differs)."""
 import copy
 from dataclasses import dataclass
+import logging
 import math
 
 import numpy as np
@@ -10,14 +11,19 @@ import torch.nn.functional as F
 from mtp.dataset import denormalize_targets
 from mtp.modeling.metrics import compute_metrics_np
 
+log = logging.getLogger(__name__)
+
 
 @dataclass
 class TrainConfig:
     lr: float
     weight_decay: float
     num_epochs: int
-    patience: int
+    patience: int  # epochs without validation improvement before stopping
     device: str = "cpu"
+    grad_clip_norm: float = 5.0
+    lr_decay_factor: float = 0.5
+    lr_decay_patience: int = 4
 
 
 @dataclass
@@ -36,7 +42,9 @@ def trainable_parameters(model):
     return [p for p in model.parameters() if p.requires_grad]
 
 
-def run_epoch(model, loader, objective, scaler, dim_names, optimizer=None, device="cpu") -> EpochResult:
+def run_epoch(
+    model, loader, objective, scaler, dim_names, optimizer=None, device="cpu", grad_clip_norm=5.0
+) -> EpochResult:
     """One pass over `loader`: trains when an optimizer is given, otherwise evaluates."""
     is_train = optimizer is not None
     model.train() if is_train else model.eval()
@@ -54,7 +62,7 @@ def run_epoch(model, loader, objective, scaler, dim_names, optimizer=None, devic
             out = objective(model, batch)
             if is_train:
                 out.loss.backward()
-                torch.nn.utils.clip_grad_norm_(trainable_parameters(model), max_norm=5.0)
+                torch.nn.utils.clip_grad_norm_(trainable_parameters(model), max_norm=grad_clip_norm)
                 optimizer.step()
 
         n = batch[0].shape[0]
@@ -75,7 +83,7 @@ def run_epoch(model, loader, objective, scaler, dim_names, optimizer=None, devic
 
 def fit(stage_name, model, train_loader, val_loader, objective, scaler, dim_names, cfg: TrainConfig):
     """
-    Train the model's trainable parameters with AdamW, halve the learning rate when the
+    Train the model's trainable parameters with AdamW, decay the learning rate when the
     validation loss plateaus, stop early after `cfg.patience` epochs without improvement,
     and load the weights with the best validation loss back into `model`.
 
@@ -83,26 +91,30 @@ def fit(stage_name, model, train_loader, val_loader, objective, scaler, dim_name
     """
     model.to(cfg.device)
     optimizer = torch.optim.AdamW(trainable_parameters(model), lr=cfg.lr, weight_decay=cfg.weight_decay)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=4)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", factor=cfg.lr_decay_factor, patience=cfg.lr_decay_patience
+    )
 
     best_state = None
     best_val_loss = math.inf
     wait = 0
     stage_rows = []
 
-    print(f"\n===== {stage_name} =====")
-    print("Trainable parameters:", sum(p.numel() for p in trainable_parameters(model)))
+    log.info(
+        "===== %s ===== (%d trainable parameters)",
+        stage_name, sum(p.numel() for p in trainable_parameters(model)),
+    )
 
     for epoch in range(1, cfg.num_epochs + 1):
-        train = run_epoch(model, train_loader, objective, scaler, dim_names, optimizer, cfg.device)
+        train = run_epoch(model, train_loader, objective, scaler, dim_names, optimizer, cfg.device, cfg.grad_clip_norm)
         val = run_epoch(model, val_loader, objective, scaler, dim_names, None, cfg.device)
         scheduler.step(val.losses["loss"])
 
         details = objective.stage_row(train, val)
-        print(
-            f"{stage_name} | Epoch {epoch:03d} | "
-            f"train_loss={train.losses['loss']:.4f}, val_loss={val.losses['loss']:.4f} | "
-            + ", ".join(f"{k}={v:.4f}" for k, v in details.items())
+        log.info(
+            "%s | Epoch %03d | train_loss=%.4f, val_loss=%.4f | %s",
+            stage_name, epoch, train.losses["loss"], val.losses["loss"],
+            ", ".join(f"{k}={v:.4f}" for k, v in details.items()),
         )
         stage_rows.append({
             "stage": stage_name,
@@ -119,7 +131,7 @@ def fit(stage_name, model, train_loader, val_loader, objective, scaler, dim_name
         else:
             wait += 1
             if wait >= cfg.patience:
-                print(f"{stage_name}: early stopping.")
+                log.info("%s: early stopping after epoch %d.", stage_name, epoch)
                 break
 
     if best_state is not None:

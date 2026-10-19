@@ -32,31 +32,34 @@ Run step 4 from the repo root. Every setting in `mtp/config.py` (`Config`) is al
 ```bash
 python -m mtp.modeling.train                                   # subject s026, baselines 0 1 2 3 6 7
 python -m mtp.modeling.train --subject s008 s009 --baselines 3 6 7
-python -m mtp.modeling.train --subject all                     # every subject in data/processed
+python -m mtp.modeling.train --subject all --skip-existing     # every subject in data/processed; resume a batch
 python -m mtp.modeling.train --data-dir D:/MTP_task/model      # lab PC: all files in one folder
 python -m mtp.modeling.train --pretrain-epochs 5 --finetune-epochs 5 --device cpu
 ```
 
+Each subject also gets a `.log` file next to its Excel file. With several subjects, a subject that fails is logged and the run continues; the exit code is 1 if any subject failed. Invalid settings (for example `--device gpu`) are rejected before any data is loaded.
+
 ## Tests
 
-`tests/test_golden.py` runs every baseline for 3 epochs on small random data (CPU, fixed seed) and checks that the result tables match `tests/golden/`. Those expected results came from the original single-file script. The test takes about a minute:
-
 ```bash
-python -m pytest
+python -m pytest -m "not slow"   # unit tests, a few seconds
+python -m pytest                 # everything, about 2 minutes on CPU
 ```
 
-If it fails, the pipeline's results changed. If you meant to change them, regenerate the expected results with `python tests/make_golden.py` and say why in the commit message.
+- `tests/test_config.py`, `test_data.py`, `test_modeling.py`: unit tests for settings, data loading and splitting, metrics, Baseline 0 features and model shapes.
+- `tests/test_cli.py` (slow): runs the command line on mock data with less common options, a failing subject and `--skip-existing`.
+- `tests/test_golden.py` (slow): runs every baseline for 3 epochs on small random data (CPU, fixed seed) and checks that the result tables match `tests/golden/`.
 
-The test runs on CPU because GPU training is not bit-for-bit reproducible.
+If the golden test fails, the pipeline's results changed. If you meant to change them, regenerate the expected results with `python tests/make_golden.py` and say why in the commit message.
 
 ## Project Organization
 
 ```
 ├── LICENSE
-├── Makefile               <- `make requirements`, `make test`, `make lint` (needs GNU make)
+├── Makefile               <- `make requirements`, `make test`, `make test-fast`, `make lint` (needs GNU make)
 ├── README.md
 ├── pyproject.toml         <- Package metadata for `mtp`, ruff and pytest settings
-├── requirements.txt       <- Dependencies for preprocessing, training and tests
+├── requirements.txt       <- Dependencies; libraries that affect results are pinned
 │
 ├── data                   <- Local data, gitignored
 │   ├── external
@@ -69,7 +72,7 @@ The test runs on CPU because GPU training is not bit-for-bit reproducible.
 ├── notebooks              <- Preprocessing notebooks, steps 1-3
 ├── references             <- Protocols, electrode montage, manuals
 ├── reports                <- Generated results
-│   ├── baseline_results   <- Step 4 Excel output, one file per subject
+│   ├── baseline_results   <- Step 4 output: one Excel file and one log per subject
 │   └── figures
 │
 ├── experimental_program   <- Data-collection code for the lab PC (not part of `mtp`)
@@ -77,11 +80,11 @@ The test runs on CPU because GPU training is not bit-for-bit reproducible.
 │   ├── experiment_task    <- pygame + Kinect experiment task
 │   └── requirements.txt
 │
-├── tests                  <- Golden-output regression test (see "Tests")
-│   ├── golden             <- Expected result tables from the original script
-│   ├── harness.py         <- Mock data, settings patching, running and comparing
+├── tests                  <- Unit tests and end-to-end tests (see "Tests")
+│   ├── golden             <- Expected result tables for test_golden.py
+│   ├── harness.py         <- Mock data, running the CLI, comparing results
 │   ├── make_golden.py     <- Regenerates tests/golden/
-│   └── test_golden.py
+│   └── test_*.py
 │
 └── mtp                    <- Source code for this project
     ├── config.py          <- Recording constants and `Config` (all run settings, also CLI options)

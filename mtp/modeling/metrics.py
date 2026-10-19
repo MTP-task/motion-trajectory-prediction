@@ -19,10 +19,12 @@ def sequence_corrcoef(y_pred: torch.Tensor, y_true: torch.Tensor, eps: float = 1
 
 
 class SequenceRegressionLoss(nn.Module):
-    def __init__(self, corr_weight: float = 0.10):
+    """Huber loss plus corr_weight * (1 - mean Pearson r over the output dimensions)."""
+
+    def __init__(self, corr_weight: float = 0.10, huber_beta: float = 0.5):
         super().__init__()
         self.corr_weight = corr_weight
-        self.huber = nn.SmoothL1Loss(beta=0.5)
+        self.huber = nn.SmoothL1Loss(beta=huber_beta)
 
     def forward(self, y_pred, y_true):
         huber = self.huber(y_pred, y_true)

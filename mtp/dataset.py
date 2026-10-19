@@ -1,4 +1,5 @@
 """Load step 3 outputs for one subject and turn them into model-ready splits and loaders."""
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -8,6 +9,8 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from mtp.config import EEG_FS, KEY_TO_TARGET_ID, LABEL_TO_KEY, TRAJ_KEY_ALIAS
 from mtp.features import make_eeg_input, normalize_imu_train_only
+
+log = logging.getLogger(__name__)
 
 # ---- Locating files ---------------------------------------------------------
 
@@ -63,17 +66,16 @@ def load_eeg_and_trajectory(eeg_path, traj_path, name: str):
     eeg = np.load(eeg_path, allow_pickle=True)
     traj = np.load(traj_path, allow_pickle=True).item()
 
-    print(f"\nLoaded {name} EEG:", eeg.shape, eeg.dtype)
-    print(f"Loaded {name} trajectory keys:", list(traj.keys()))
+    log.info("Loaded %s EEG: %s %s", name, eeg.shape, eeg.dtype)
 
     if not all(isinstance(traj.get(k), np.ndarray) for k in TRAJECTORY_KEYS):
         raise ValueError(
             f"{name} trajectory file {traj_path} must be a dict of epoch-aligned arrays "
             f"with keys {TRAJECTORY_KEYS} (the format written by step 3)."
         )
-    for stream_key in traj:
-        arr = traj[stream_key]
-        print(f"  {stream_key}: {arr.shape}, {arr.dtype}")
+    log.info(
+        "Loaded %s trajectory: %s", name, ", ".join(f"{k} {arr.shape}" for k, arr in traj.items())
+    )
 
     return eeg, traj
 
@@ -89,10 +91,10 @@ def load_labels_clean(labels_path, name: str) -> np.ndarray:
         raise ValueError(f"{name}: unknown labels found {sorted(unknown)}. Expected only {sorted(valid)}.")
 
     unique, counts = np.unique(labels, return_counts=True)
-    print(f"\nLoaded {name} labels_clean: {labels.shape}, {labels.dtype}")
-    print(f"{name} label counts:")
-    for lab, count in zip(unique, counts):
-        print(f"  {lab} -> {LABEL_TO_KEY[int(lab)]}: {count}")
+    log.info(
+        "Loaded %s labels: %d trials (%s)", name, labels.shape[0],
+        ", ".join(f"{LABEL_TO_KEY[int(lab)]}: {count}" for lab, count in zip(unique, counts)),
+    )
 
     return labels
 
@@ -210,17 +212,23 @@ def build_imu_sequence(traj: dict, labels_clean: np.ndarray):
 
 # ---- Split and target scaling -----------------------------------------------
 
-def stratified_split_indices(target_ids: np.ndarray, seed: int = 42):
+def stratified_split_indices(
+    target_ids: np.ndarray, seed: int = 42, test_fraction: float = 0.15, val_fraction: float = 0.1765
+):
+    """
+    Split trial indices into train / val / test, stratified by target.
+    test_fraction is a share of all trials; val_fraction a share of the rest.
+    """
     indices = np.arange(len(target_ids))
     trainval_idx, test_idx = train_test_split(
         indices,
-        test_size=0.15,
+        test_size=test_fraction,
         random_state=seed,
         stratify=target_ids,
     )
     train_idx, val_idx = train_test_split(
         trainval_idx,
-        test_size=0.1765,
+        test_size=val_fraction,
         random_state=seed,
         stratify=target_ids[trainval_idx],
     )
@@ -266,25 +274,25 @@ def prepare_dataset(cfg, condition: str, with_imu: bool):
     if eeg.shape[0] != y.shape[0]:
         raise ValueError(f"{condition}: EEG epochs ({eeg.shape[0]}) != target epochs ({y.shape[0]}).")
 
-    print(f"\n{condition} after construction:")
-    print("  EEG full epoch:", eeg.shape)
     if with_imu:
         imu = build_imu_sequence(traj, labels_clean)
         if imu.shape[0] != y.shape[0]:
             raise ValueError(f"{condition}: IMU epochs ({imu.shape[0]}) != target epochs ({y.shape[0]}).")
-        print("  IMU:", imu.shape)
-    print("  y:", y.shape)
-    print("  target_ids:", target_ids.shape, np.bincount(target_ids, minlength=4))
-    print("  dim_names:", dim_names)
+    log.info(
+        "%s targets: y %s (%s)%s", condition, y.shape, ", ".join(dim_names),
+        f", IMU {imu.shape}" if with_imu else "",
+    )
 
-    split_idx = dict(zip(SPLITS, stratified_split_indices(target_ids, cfg.seed)))
+    split_idx = dict(zip(SPLITS, stratified_split_indices(
+        target_ids, cfg.seed, test_fraction=cfg.test_fraction, val_fraction=cfg.val_fraction,
+    )))
+    log.info("%s split (trials per target 1-4): %s", condition, " | ".join(
+        f"{split} {len(idx)} {np.bincount(target_ids[idx], minlength=4).tolist()}"
+        for split, idx in split_idx.items()
+    ))
 
-    print(f"\n{condition} split:")
-    for split, idx in split_idx.items():
-        print(f"  {split + ':':6s}", len(idx), np.bincount(target_ids[idx], minlength=4))
-
-    X = make_eeg_input(eeg, EEG_FS, use_filterbank=cfg.use_filterbank)
-    print("  EEG model input X:", X.shape)
+    X = make_eeg_input(eeg, EEG_FS, use_filterbank=cfg.use_filterbank, clip_value=cfg.eeg_clip_value)
+    log.info("%s EEG model input: %s", condition, X.shape)
 
     subject_ids = np.zeros(len(target_ids), dtype=np.int64)
     data = {}

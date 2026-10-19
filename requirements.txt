@@ -1,20 +1,24 @@
 # On a GPU machine, install the CUDA build of torch first
 # (https://pytorch.org/get-started/locally/); plain `pip install torch` gives the CPU build.
+
+# Pinned: these change numerical results, and tests/golden/ was produced with them.
+mne==1.12.1
+numpy==2.3.1
+openpyxl==3.1.5
+pandas==2.3.0
+scikit-learn==1.7.0
+scipy==1.16.0
+torch==2.11.0
+
+# Notebooks and tools
 ipython
 jupyterlab
 matplotlib
-mne
 mne-icalabel
 notebook
-numpy
-openpyxl
-pandas
 pip
 pytest
 python-dotenv
 ruff
-scikit-learn
-scipy
 seaborn
-torch
 -e .

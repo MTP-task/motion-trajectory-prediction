@@ -44,6 +44,11 @@ format:
 test:
 	python -m pytest tests
 
+## Run the fast tests only (seconds)
+.PHONY: test-fast
+test-fast:
+	python -m pytest tests -m "not slow"
+
 
 
 

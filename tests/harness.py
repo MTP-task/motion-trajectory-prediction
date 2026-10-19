@@ -15,6 +15,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from mtp.dataset import DATA_FILES
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 SUBJECT = "mock"
@@ -50,12 +52,15 @@ def legacy_script_settings(data_dir):
     }
 
 
-def write_mock_data(data_dir, subject=SUBJECT, n_channels=8, n_samples=4609, seed=0):
+def write_mock_data(data_dir, subject=SUBJECT, n_channels=8, n_samples=4609, seed=0, layout="flat"):
     """Write a small random dataset in the same format as step 3's output.
 
     Real data: EEG (N, 64, 4609) in volts, labels 101-104, and a trajectory dict of
     (N, 150, 3|6) arrays. Here N is 48 per condition and there are 8 channels.
+    layout: "flat" (all files in data_dir, as on the lab PC) or "subfolders" (as in
+    data/processed).
     """
+    data_dir = Path(data_dir)
     rng = np.random.default_rng(seed)
     class_counts = {"ME": [12, 12, 11, 13], "MI": [12, 12, 12, 12]}
     for condition, counts in class_counts.items():
@@ -69,9 +74,11 @@ def write_mock_data(data_dir, subject=SUBJECT, n_channels=8, n_samples=4609, see
             "wirst": rng.normal(size=(n, 150, 3)),  # key spelling used by the pipeline
             "IMU": rng.normal(size=(n, 150, 6)),
         }
-        np.save(data_dir / f"EEG_data_{subject}_{condition}.npy", eeg)
-        np.save(data_dir / f"trajectory_{subject}_{condition}.npy", trajectory, allow_pickle=True)
-        np.save(data_dir / f"labels_clean_{subject}_{condition}.npy", labels)
+        for kind, array in {"eeg": eeg, "trajectory": trajectory, "labels": labels}.items():
+            subdir, pattern = DATA_FILES[kind]
+            folder = data_dir / subdir if layout == "subfolders" else data_dir
+            folder.mkdir(parents=True, exist_ok=True)
+            np.save(folder / pattern.format(subject=subject, condition=condition), array, allow_pickle=True)
 
 
 def patch_settings(path, settings):
@@ -87,7 +94,12 @@ def patch_settings(path, settings):
 
 def run_package(data_dir):
     """Run the current `mtp` package on the mock data in `data_dir`."""
-    return _run([sys.executable, "-m", "mtp.modeling.train", *mock_cli_args(data_dir)], REPO_ROOT)
+    return run_cli(mock_cli_args(data_dir))
+
+
+def run_cli(args, check=True):
+    """Run `python -m mtp.modeling.train <args>` on CPU and return the finished process."""
+    return _run([sys.executable, "-m", "mtp.modeling.train", *args], REPO_ROOT, check=check)
 
 
 def run_script(workdir, git_spec, settings):
@@ -101,17 +113,17 @@ def run_script(workdir, git_spec, settings):
     return _run([sys.executable, str(script)], workdir)
 
 
-def _run(cmd, cwd):
+def _run(cmd, cwd, check=True):
     # Hide the GPU: GPU training is not reproducible run to run. "-1" is needed on
     # Windows, where an empty CUDA_VISIBLE_DEVICES still exposes the GPU.
     env = {**os.environ, "CUDA_VISIBLE_DEVICES": "-1", "PYTHONIOENCODING": "utf-8"}
     proc = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True, encoding="utf-8")
-    if proc.returncode != 0:
+    if check and proc.returncode != 0:
         raise RuntimeError(
             f"pipeline failed (exit {proc.returncode})\n"
             f"--- stdout (tail) ---\n{proc.stdout[-3000:]}\n--- stderr (tail) ---\n{proc.stderr[-3000:]}"
         )
-    return proc.stdout
+    return proc
 
 
 def result_path(data_dir, subject=SUBJECT):
