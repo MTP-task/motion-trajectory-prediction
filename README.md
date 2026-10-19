@@ -4,9 +4,59 @@
     <img src="https://img.shields.io/badge/CCDS-Project%20template-328F97?logo=cookiecutter" />
 </a>
 
-Predicting upper-limb motion trajectories from EEG and IMU during motor execution (ME) and motor imagery (MI).
+This project tries to predict how a person's arm moves from their brain activity.
 
-## Setup
+In the experiment, participants sat at a table with four numbered ping-pong balls in front of them. When a ball's number appeared on screen, they either reached out and picked it up (motor execution, ME) or kept still and only imagined doing so (motor imagery, MI). Throughout, 64-channel EEG was recorded. During real reaches, a Kinect camera tracked the shoulder, elbow and wrist, and two IMUs on the arm measured its rotation. Each subject did about 240 real and 240 imagined reaches.
+
+The models take five seconds of EEG, starting at movement onset, and predict the velocity of the shoulder, elbow and wrist in x, y and z, 30 times a second. The main question is whether real reaches, and the IMU signals recorded during them, help a model decode imagined ones.
+
+## Method
+
+### Preparing the data
+
+The raw recordings go through four steps. The first three are Jupyter notebooks, run one subject at a time; the fourth is the `mtp` package in this repo.
+
+| Step | Code | What it does |
+|---|---|---|
+| 1 | `notebooks/step1_ICA_Epoch.ipynb` | Filters the EEG (0.1 to 50 Hz, 50 Hz notch), re-references it to two external electrodes, cuts epochs around movement onset and removes artifacts such as eye movements and muscle activity with ICA |
+| 2 | `notebooks/step2_LabelNoiseRemoval.ipynb` | Turns the camera positions into joint velocities, filters them and drops real reaches with jerky movement |
+| 3 | `notebooks/step3_get_epoch_label.ipynb` | Lines up the EEG epochs with the velocities trial by trial and saves both, with the target labels |
+| 4 | `python -m mtp.modeling.train` | Builds the model input, trains and tests the baselines, and saves the results |
+
+In step 4, the EEG of each trial (−2 to 7 s around movement onset) is split into six frequency bands: 0.5–1, 1–4, 4–8, 8–13, 13–30 and 30–45 Hz. Each band is filtered over the whole epoch before the 0–5 s window is cut out, so the filter's edge effects stay outside the part the model sees. Each band is then normalized per trial and channel.
+
+**A note on the imagined trials.** An imagined reach has no movement to measure, so step 2 gives every imagined trial the same target: the average of that subject's real reaches to the same ball. A model can therefore score well on MI just by recognizing which ball was imagined. Keep this in mind when you compare ME and MI results.
+
+### Models
+
+All deep models share an EEG encoder. It runs temporal convolutions on each frequency band, combines the 64 channels with a spatial convolution, and models the time course with dilated temporal convolutions. Models that also use the IMU have an IMU encoder and a block that fuses the two. During MI there is no IMU signal, so these models get zeros in its place.
+
+Each baseline tests one idea:
+
+| # | What it trains | Runs by default |
+|---|---|---|
+| 0 | Linear regression from time-lagged EEG | yes |
+| 1 | An EEG model on MI only | yes |
+| 2 | An EEG model pretrained on ME, then fine-tuned on MI | yes |
+| 3 | An EEG and IMU model pretrained on ME, then fine-tuned on MI with the IMU set to zero | yes |
+| 4 | A teacher (EEG and IMU) and a student (EEG only) on ME, then the student on MI | no |
+| 5 | Baseline 4 with lag-aware fusion, per-subject scaling and alignment to ME prototypes | no |
+| 6 | Baseline 3 with cross-attention between EEG and IMU | yes |
+| 7 | Baseline 3 with self-attention over the fused features | yes |
+
+`mtp/modeling/baselines.py` describes each one in more detail.
+
+### Training and scoring
+
+Every subject is trained and tested separately. Each subject's trials are split into about 70% for training, 15% for validation and 15% for testing, with the same mix of balls in each part. Training stops when the validation loss stops improving, and the best weights are kept. The loss combines the error in each velocity with how well the shape of the predicted curve follows the real one.
+
+The models are scored on the test trials with the Pearson correlation (r), the RMSE and the MAE between predicted and real velocity, for each joint and axis. The main score of each baseline is on the MI test trials.
+
+## Running it
+
+### Setup
+
+You need Python 3.12. If the machine has an NVIDIA GPU, install the CUDA build of PyTorch first ([pytorch.org](https://pytorch.org/get-started/locally/)); otherwise pip installs the CPU-only build. Then:
 
 ```bash
 conda create -n motion-trajectory-prediction python=3.12 -y
@@ -14,94 +64,93 @@ conda activate motion-trajectory-prediction
 pip install -r requirements.txt
 ```
 
-`requirements.txt` also installs this repo's `mtp` package in editable mode (`-e .`).
+### Data
 
-## Pipeline
+The recordings are not in this repository. Put the output of step 3 in `data/processed/`, in the subfolders `EEG_data/`, `Kinematics_data/label/` and `Kinematics_data/trajectory/`. If all the files are in one folder instead, as on the lab PC, pass that folder with `--data-dir`.
 
-Data is never pushed to this repo (`/data/` is gitignored). The notebooks (steps 1-3) read and write absolute paths under `D:\MTP_task`. Step 4 reads the step 3 outputs from `data/processed/` by default (`EEG_data/`, `Kinematics_data/label/`, `Kinematics_data/trajectory/`), or from any folder given with `--data-dir`.
+### Training
 
-| Step | Code | Reads | Writes |
-|---|---|---|---|
-| 1 | `notebooks/step1_ICA_Epoch.ipynb` | `D:\MTP_task\MTP_eeg\<subject>\*.bdf` | `D:\MTP_task\MTP_eeg\cleaned_data\ICA_cleaned_Epoch_<subject>.fif` |
-| 2 | `notebooks/step2_LabelNoiseRemoval.ipynb` | `D:\MTP_task\cam_data\<subject>\*.xlsx` | `D:\MTP_task\cam_data\trajectory_label\Trajectory_<subject>_<ME\|MI>.pkl`, `Reject_Labels_<subject>_ME.pkl` |
-| 3 | `notebooks/step3_get_epoch_label.ipynb` | outputs of steps 1 and 2 | `D:\MTP_task\model\EEG_data_*.npy`, `trajectory_*.npy`, `labels_clean_*.npy` |
-| 4 | `python -m mtp.modeling.train` | outputs of step 3 | `reports/baseline_results/baseline_results_<subject>_multihead.xlsx` |
-
-Run step 4 from the repo root. Every setting in `mtp/config.py` (`Config`) is also a command-line option; see `--help`:
+From the repository root:
 
 ```bash
-python -m mtp.modeling.train                                   # subject s026, baselines 0 1 2 3 6 7
+python -m mtp.modeling.train                                 # subject s026, the default baselines
 python -m mtp.modeling.train --subject s008 s009 --baselines 3 6 7
-python -m mtp.modeling.train --subject all --skip-existing     # every subject in data/processed; resume a batch
-python -m mtp.modeling.train --data-dir D:/MTP_task/model      # lab PC: all files in one folder
-python -m mtp.modeling.train --pretrain-epochs 5 --finetune-epochs 5 --device cpu
+python -m mtp.modeling.train --subject all --skip-existing   # every subject; skips finished ones
+python -m mtp.modeling.train --data-dir D:/MTP_task/model    # all files in one folder
 ```
 
-Each subject also gets a `.log` file next to its Excel file. With several subjects, a subject that fails is logged and the run continues; the exit code is 1 if any subject failed. Invalid settings (for example `--device gpu`) are rejected before any data is loaded.
+Every setting, from the number of epochs to the loss weights, can be changed on the command line; `--help` lists them with their defaults.
 
-Runs are deterministic by default: the same settings and seed give the same results every time, on CPU or GPU, at no measurable cost in speed. `--no-deterministic` turns this off. Results on CPU and GPU differ slightly from each other.
+On the same machine, a run with the same settings and seed gives exactly the same results every time. Results on a CPU and on a GPU differ slightly from each other.
 
-## Tests
+### Results
+
+Each subject gets `reports/baseline_results/baseline_results_<subject>_multihead.xlsx`, with a log of the run next to it. The Excel file has four sheets:
+
+- `summary`: one row per evaluation, with the mean r, RMSE and MAE
+- `axis_metrics`: the same scores for each joint and axis
+- `stages`: the training and validation loss of every epoch
+- `config`: every setting used for the run
+
+### Tests
 
 ```bash
-python -m pytest -m "not slow"   # unit tests, a few seconds
-python -m pytest                 # everything, about 2 minutes on CPU
+python -m pytest
 ```
 
-- `tests/test_config.py`, `test_data.py`, `test_modeling.py`: unit tests for settings, data loading and splitting, metrics, Baseline 0 features and model shapes.
-- `tests/test_cli.py` (slow): runs the command line on mock data with less common options, a failing subject and `--skip-existing`. On a machine with a GPU it also checks that two GPU runs give identical results.
-- `tests/test_golden.py` (slow): runs every baseline for 3 epochs on small random data (CPU, fixed seed) and checks that the result tables match `tests/golden/`.
+The tests check data loading, the metrics and the models, and run every baseline on small random data to make sure the results stay the same. They take about three minutes on a CPU.
 
-If the golden test fails, the pipeline's results changed. If you meant to change them, regenerate the expected results with `python tests/make_golden.py` and say why in the commit message.
+## Contributing
 
-## Project Organization
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the code style and how to work with the tests.
+
+## Project layout
 
 ```
 ├── LICENSE
-├── Makefile               <- `make requirements`, `make test`, `make test-fast`, `make lint` (needs GNU make)
+├── Makefile               <- Shortcuts: make requirements, test, lint, format (needs GNU make)
 ├── README.md
-├── pyproject.toml         <- Package metadata for `mtp`, ruff and pytest settings
-├── requirements.txt       <- Dependencies; libraries that affect results are pinned
+├── CONTRIBUTING.md        <- Code style and how to work with the tests
+├── pyproject.toml         <- Package metadata and the ruff and pytest settings
+├── requirements.txt       <- Dependencies; the libraries that affect results are pinned
 │
-├── data                   <- Local data, gitignored
+├── data                   <- Local data, not in git
 │   ├── external
 │   ├── interim
-│   ├── processed          <- Step 3 outputs: EEG_data/, Kinematics_data/{label,trajectory}/
+│   ├── processed          <- Step 3 output: EEG_data/, Kinematics_data/{label,trajectory}/
 │   └── raw
 │
 ├── docs
-├── models                 <- Trained and serialized models
-├── notebooks              <- Preprocessing notebooks, steps 1-3
+├── models                 <- Trained models
+├── notebooks              <- Steps 1 to 3
 ├── references             <- Protocols, electrode montage, manuals
 ├── reports                <- Generated results
-│   ├── baseline_results   <- Step 4 output: one Excel file and one log per subject
+│   ├── baseline_results   <- Excel results and logs from step 4
 │   └── figures
 │
-├── experimental_program   <- Data-collection code for the lab PC (not part of `mtp`)
-│   ├── arduino_imu        <- MPU6050 IMU firmware
-│   ├── experiment_task    <- pygame + Kinect experiment task
+├── experimental_program   <- Code for the lab PC that runs the experiment
+│   ├── arduino_imu        <- Firmware for the MPU6050 IMUs
+│   ├── experiment_task    <- The pygame and Kinect task
 │   └── requirements.txt
 │
-├── tests                  <- Unit tests and end-to-end tests (see "Tests")
-│   ├── golden             <- Expected result tables for test_golden.py
-│   ├── harness.py         <- Mock data, running the CLI, comparing results
+├── tests
+│   ├── golden             <- Expected results for the golden test
+│   ├── harness.py         <- Mock data, running the command line, comparing results
 │   ├── make_golden.py     <- Regenerates tests/golden/
 │   └── test_*.py
 │
-└── mtp                    <- Source code for this project
-    ├── config.py          <- Recording constants and `Config` (all run settings, also CLI options)
-    ├── dataset.py         <- Find and load step 3 outputs, build targets, split, scale, loaders
-    ├── features.py        <- EEG filter bank, crop and z-score; IMU normalization
+└── mtp                    <- The Python package
+    ├── config.py          <- Recording constants and Config, the settings of a run
+    ├── dataset.py         <- Loads the step 3 output, builds targets, splits, scales
+    ├── features.py        <- EEG filter bank, cropping and normalization
     └── modeling
-        ├── train.py       <- Step 4 entry point (command line)
-        ├── baselines.py   <- Baselines 0-7, one function each
-        ├── experiment.py  <- Shared per-subject setup: data, loaders, fit/evaluate/record
-        ├── objectives.py  <- Per-batch losses: supervised, teacher-student, prototype-aligned
-        ├── trainers.py    <- The training loop shared by all deep baselines
+        ├── train.py       <- Command-line entry point
+        ├── baselines.py   <- One function per baseline
+        ├── experiment.py  <- Data, loaders and results shared by the baselines of a subject
+        ├── objectives.py  <- What each training stage computes per batch
+        ├── trainers.py    <- The training loop
         ├── models.py      <- Encoders, fusion blocks and models
-        ├── metrics.py     <- Losses and evaluation metrics
-        ├── linear.py      <- Baseline 0: time-lagged ridge regression
-        └── results.py     <- Result rows and Excel export
+        ├── metrics.py     <- Losses and scores
+        ├── linear.py      <- Baseline 0
+        └── results.py     <- Result tables and the Excel export
 ```
-
---------
